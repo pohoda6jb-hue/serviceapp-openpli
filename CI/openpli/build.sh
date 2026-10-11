@@ -5,9 +5,11 @@ set -euo pipefail
 source_dir=$(cd "$(dirname "$0")/../.." && pwd)
 oe_dir="$source_dir/.openpli-build"
 artifact_dir="$source_dir/artifacts"
+cache_dir="$source_dir/.openpli-cache"
 oe_revision=73ca1f1613f9b84c1bfc08a003bb4a0c59a3e0c0
 recipe=enigma2-plugin-systemplugins-serviceapp
 mkdir -p "$artifact_dir/logs" "$artifact_dir/package"
+mkdir -p "$cache_dir/downloads" "$cache_dir/sstate"
 exec > >(tee "$artifact_dir/logs/build.log") 2>&1
 
 collect_logs() {
@@ -42,7 +44,8 @@ recipe.write_text(text.replace(old, new))
 PY
 
 cd "$oe_dir"
-MACHINE=vuduo4k make init BB_NUMBER_THREADS=2 PARALLEL_MAKE=-j2
+MACHINE=vuduo4k make init BB_NUMBER_THREADS=2 PARALLEL_MAKE=-j2 \
+    DL_DIR="$cache_dir/downloads" SSTATE_DIR="$cache_dir/sstate"
 append_dir="$oe_dir/meta-local/recipes-openpli/serviceapp"
 mkdir -p "$append_dir"
 cat > "$append_dir/$recipe.bbappend" <<EOF

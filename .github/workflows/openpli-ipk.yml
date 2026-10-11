@@ -36,6 +36,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Restore downloaded sources and completed build tasks
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .openpli-cache/downloads
+            .openpli-cache/sstate
+          key: openpli92-vuduo4k-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            openpli92-vuduo4k-73ca1f16-u20-v1-
       - name: Build ServiceApp against OpenPLi 9.2
         env:
           SERVICEAPP_COMMIT: ${{ github.sha }}
@@ -44,6 +53,15 @@ jobs:
           runuser -u builder -- env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
             SERVICEAPP_COMMIT="$SERVICEAPP_COMMIT" \
             bash "$GITHUB_WORKSPACE/CI/openpli/build.sh"
+      # Separate save action preserves completed tasks even when BitBake fails.
+      - name: Save downloaded sources and completed build tasks
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .openpli-cache/downloads
+            .openpli-cache/sstate
+          key: openpli92-vuduo4k-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Save package and build provenance
         uses: actions/upload-artifact@v4
         with:

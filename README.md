@@ -28,6 +28,14 @@ the runtime IPK, source revisions and SHA256 checksums. Logs are saved separatel
 on failure. Artifacts expire after 14 days. An initial build may exceed a hosted
 runner's disk/time limits; failures do not produce an installable package.
 
+Downloads and OpenEmbedded shared-state tasks are restored from GitHub cache
+before each build and saved even after a build failure. Each attempt writes a
+new cache entry, so later attempts can reuse newly completed dependencies.
+Cache keys isolate the pinned 9.2 metadata, Ubuntu host and Duo 4K target.
+BitBake still checks task signatures and rebuilds changed tasks; this is not a
+resume of a stopped compiler process. The first run has no cache, and GitHub
+can evict caches under its storage/retention limits.
+
 This package targets Duo 4K, not Duo 4K SE or Dreambox DM8000. Before installing,
 keep a receiver backup and a copy of the original ServiceApp package, and check
 the new package's dependencies against the receiver. Build success does not
