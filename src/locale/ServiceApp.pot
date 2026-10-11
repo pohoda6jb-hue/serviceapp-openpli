@@ -285,3 +285,175 @@ msgstr ""
 #: ../plugin/plugin.py:74 ../plugin/plugin.py:75
 msgid "true"
 msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Auto recognizes HTTP(S) .ts and .m3u8 paths, ignoring query strings. Use an explicit profile for token-only URLs. Legacy preserves existing settings."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Automatic (URL extension)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Disabled"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Download buffer must be an absolute temporary-file template ending in XXXXXX."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Empty disables disk download buffering. Use a writable GLib temporary-file template ending in XXXXXX, for example /media/hdd/serviceapp-XXXXXX."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Enable exteplayer3 live MPEG-TS mode, including reconnect at EOF. New profiles select this automatically."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Enabled"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "FFmpeg options"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "FFmpeg options must be key=value entries separated by semicolons."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "GstPlayer HLS buffer size; actual segment buffering depends on GStreamer."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "GstPlayer buffer size; reduce only after testing on your receiver."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "GstPlayer interface"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "HLS"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "HLS Explorer maximum bitrate in kb/s; does not control the native player's HLS selection."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "HLS buffer (KB)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "HLS buffer duration (s)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Legacy (existing settings)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Live TS"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Live TS buffer (KB)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Live TS buffer duration (s)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Live TS mode"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "MPEG-TS program ID"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Only used with HLS Explorer."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "OpenPLi positional interface"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Optional master-playlist variant selection. Disabled in new profiles so the player handles HLS natively."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Playback profile"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Player default"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Player default recommended. Explicit values are passed as -o 0 or -o 1."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Process nice value"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Progressive download"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Select OpenPLi positional interface for the gstplayer supplied by OpenPLi. Legacy uses ServiceApp flags."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "ServiceApp flags (legacy)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Show advanced options"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "VOD"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "VOD / legacy buffer (KB)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "VOD / legacy buffer duration (s)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "VOD download buffer template"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "VOD ring buffer (MB)"
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Zero is normal priority. Higher values reduce priority; leave at player default unless needed."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Zero leaves duration at the player default."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Zero leaves it unset. Used together with the download buffer template; not applied to Live TS/HLS profiles."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "Zero uses the player default. Select a program from a multi-program transport stream."
+msgstr ""
+
+#: src/plugin/plugin.py
+msgid "key=value;key=value, each passed with -f. Installed FFmpeg must support the keys. exteplayer3 overrides HTTP timeout/reconnect defaults; see README."
+msgstr ""

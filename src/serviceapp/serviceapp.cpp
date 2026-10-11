@@ -79,16 +79,41 @@ static void updatePlayerOptions(IOption &options, const HeaderMap &headers)
 {
 	for (HeaderMap::const_iterator it(headers.begin()); it != headers.end(); it++)
 	{
-		if (it->first.find("sapp_") == 0)
+		if (it->first.find("sapp_") == 0 && it->first != "sapp_profile")
 		{
 			options.update(it->first.substr(5), it->second);
 		}
 	}
 }
 
+static eServiceAppOptions *settingsForId(int settingId)
+{
+	switch (settingId)
+	{
+		case OPTIONS_SERVICEMP3: return g_ServiceAppOptionsServiceMP3;
+		case OPTIONS_SERVICEGSTPLAYER: return g_ServiceAppOptionsServiceGst;
+		case OPTIONS_SERVICEEXTEPLAYER3: return g_ServiceAppOptionsServiceExt3;
+		case OPTIONS_USER: return g_ServiceAppOptionsUser;
+		default: return NULL;
+	}
+}
+
+static PlaybackProfileSettings profileSettings(const eServiceReference &ref, const HeaderMap &headers)
+{
+	int id = ref.type == eServiceFactoryApp::idServiceExtEplayer3 ? OPTIONS_SERVICEEXTEPLAYER3 :
+		(ref.type == eServiceFactoryApp::idServiceGstPlayer ? OPTIONS_SERVICEGSTPLAYER : OPTIONS_SERVICEMP3);
+	PlaybackProfileSettings settings = settingsForId(g_useUserSettings ? OPTIONS_USER : id)->playback;
+	HeaderMap::const_iterator it = headers.find("sapp_profile");
+	if (it != headers.end() && playbackProfile(it->second) >= 0)
+		settings.profile = playbackProfile(it->second);
+	settings.profile = effectivePlaybackProfile(settings.profile, ref.path);
+	return settings;
+}
+
 static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &headers)
 {
 	BasePlayer *player = NULL;
+	PlaybackProfileSettings profile = profileSettings(ref, headers);
 	if (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3) )
 	{
 		ExtEplayer3Options options;
@@ -98,6 +123,9 @@ static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &h
 			options = *g_ExtEplayer3OptionsServiceExt3;
 		else
 			options = *g_ExtEplayer3OptionsServiceMP3;
+		if (profile.profile != PROFILE_LEGACY)
+			options.update(EXT3_PLAYBACK_LIVETS, profile.profile == PROFILE_TS ? "1" : "0");
+		// Per-service sapp_ options take precedence over the profile.
 		updatePlayerOptions(options, headers);
 		player = new ExtEplayer3(options);
 	}
@@ -110,6 +138,15 @@ static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &h
 			options = *g_GstPlayerOptionsServiceGst;
 		else
 			options = *g_GstPlayerOptionsServiceMP3;
+		if (profile.profile == PROFILE_TS || profile.profile == PROFILE_HLS)
+		{
+			bool ts = profile.profile == PROFILE_TS;
+			options.GetSettingMap()[GST_BUFFER_SIZE].setValue(ts ? profile.tsBufferSize : profile.hlsBufferSize);
+			options.GetSettingMap()[GST_BUFFER_DURATION].setValue(ts ? profile.tsBufferDuration : profile.hlsBufferDuration);
+			// Disk download buffering is for VOD, not the live profiles.
+			options.GetSettingMap()[GST_DOWNLOAD_BUFFER_PATH] = SettingEntry("-p", "string");
+			options.GetSettingMap()[GST_RING_BUFFER_MAXSIZE] = SettingEntry("-r", "int");
+		}
 		updatePlayerOptions(options, headers);
 		player = new GstPlayer(options);
 	}
@@ -137,7 +174,11 @@ static eServiceAppOptions *createOptions(const eServiceReference& ref)
 	{
 		options = g_ServiceAppOptionsUser;
 	}
-	return new eServiceAppOptions(*options);
+	eServiceAppOptions *result = new eServiceAppOptions(*options);
+	PlaybackProfileSettings profile = profileSettings(ref, getHeaders(ref.path));
+	if (profile.profile != PROFILE_LEGACY)
+		result->HLSExplorer = profile.profile == PROFILE_HLS && profile.hlsExplorer;
+	return result;
 }
 
 
@@ -1645,7 +1686,75 @@ serviceapp_set_setting(PyObject *self, PyObject *args)
 
 
 
+// Additive APIs: the existing positional Python setters remain unchanged.
+static PyObject *playback_profile_set_setting(PyObject *self, PyObject *args)
+{
+	int id, tsSize, tsDuration, hlsSize, hlsDuration, explorer;
+	const char *profile;
+	if (!PyArg_ParseTuple(args, "isiiiii", &id, &profile, &tsSize, &tsDuration, &hlsSize, &hlsDuration, &explorer))
+		return NULL;
+	eServiceAppOptions *options = settingsForId(id);
+	int value = playbackProfile(profile);
+	if (!options || value < 0 || tsSize < 1024 || tsSize > 65536 || hlsSize < 1024 || hlsSize > 65536 ||
+		tsDuration < 0 || tsDuration > 100 || hlsDuration < 0 || hlsDuration > 100 || (explorer != 0 && explorer != 1))
+		return PyErr_Format(PyExc_ValueError, "Invalid playback profile settings");
+	options->playback.profile = value;
+	options->playback.tsBufferSize = tsSize;
+	options->playback.tsBufferDuration = tsDuration;
+	options->playback.hlsBufferSize = hlsSize;
+	options->playback.hlsBufferDuration = hlsDuration;
+	options->playback.hlsExplorer = explorer;
+	Py_RETURN_NONE;
+}
+
+static PyObject *player_set_option(PyObject *self, PyObject *args)
+{
+	int id;
+	const char *player, *key, *value;
+	if (!PyArg_ParseTuple(args, "isss", &id, &player, &key, &value)) return NULL;
+	IOption *options = NULL;
+	SettingMap *settings = NULL;
+	if (std::string(player) == "exteplayer3")
+	{
+		ExtEplayer3Options *ext = id == OPTIONS_SERVICEMP3 ? g_ExtEplayer3OptionsServiceMP3 :
+			(id == OPTIONS_SERVICEEXTEPLAYER3 ? g_ExtEplayer3OptionsServiceExt3 :
+			(id == OPTIONS_USER ? g_ExtEplayer3OptionsUser : NULL));
+		if (ext) { options = ext; settings = &ext->GetSettingMap(); }
+	}
+	else if (std::string(player) == "gstplayer")
+	{
+		GstPlayerOptions *gst = id == OPTIONS_SERVICEMP3 ? g_GstPlayerOptionsServiceMP3 :
+			(id == OPTIONS_SERVICEGSTPLAYER ? g_GstPlayerOptionsServiceGst :
+			(id == OPTIONS_USER ? g_GstPlayerOptionsUser : NULL));
+		if (gst && std::string(key) == "interface")
+		{
+			if (std::string(value) != "flags" && std::string(value) != "openpli")
+				return PyErr_Format(PyExc_ValueError, "Invalid GstPlayer interface");
+			gst->openpliInterface = std::string(value) == "openpli";
+			Py_RETURN_NONE;
+		}
+		if (gst) { options = gst; settings = &gst->GetSettingMap(); }
+	}
+	if (!options || settings->find(key) == settings->end())
+		return PyErr_Format(PyExc_ValueError, "Unknown player, setting ID or option");
+	if (!*value)
+	{
+		// Empty GUI values restore the constructor default, including unset strings.
+		if (std::string(player) == "exteplayer3")
+			(*settings)[key] = ExtEplayer3Options().GetSettingMap()[key];
+		else
+			(*settings)[key] = GstPlayerOptions().GetSettingMap()[key];
+	}
+	else if (options->update(key, value) != 0)
+		return PyErr_Format(PyExc_ValueError, "Invalid player option value");
+	Py_RETURN_NONE;
+}
+
 static PyMethodDef serviceappMethods[] = {
+	{"playback_profile_set_setting", playback_profile_set_setting, METH_VARARGS,
+	 "Set profile, separate TS/HLS GstPlayer buffers and optional HLS Explorer."},
+	{"player_set_option", player_set_option, METH_VARARGS,
+	 "Set a supported option; empty value restores the constructor default."},
 	{"use_user_settings", use_user_settings, METH_NOARGS,
 	 "user settings will be used for creation of player"},
 	{"servicemp3_exteplayer3_enable", servicemp3_exteplayer3_enable, METH_NOARGS,

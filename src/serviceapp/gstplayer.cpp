@@ -1,4 +1,6 @@
 #include <sstream>
+#include <cerrno>
+#include <climits>
 
 #include <lib/base/eerror.h>
 #include "gstplayer.h"
@@ -12,7 +14,7 @@ const std::string GST_AUDIO_SINK           = "audio_sink";
 const std::string GST_AUDIO_TRACK_IDX      = "audio_id";
 const std::string GST_SUBTITLE_ENABLED     = "subtitles_enabled";
 
-GstPlayerOptions::GstPlayerOptions()
+GstPlayerOptions::GstPlayerOptions(): openpliInterface(false)
 {
 	settingMap[GST_DOWNLOAD_BUFFER_PATH] = SettingEntry("-p", "string");
 	settingMap[GST_RING_BUFFER_MAXSIZE]  = SettingEntry("-r", "int");
@@ -50,9 +52,9 @@ int GstPlayerOptions::update(const std::string &key, const std::string &val)
 		else if (entry.getType() == "int")
 		{
 			char *endptr = NULL;
-			int intval = -1;
-			intval = strtol(val.c_str(), &endptr , 10);
-			if (!*endptr && intval >= 0)
+			errno = 0;
+			long intval = strtol(val.c_str(), &endptr, 10);
+			if (!val.empty() && endptr != val.c_str() && !*endptr && !errno && intval >= 0 && intval <= INT_MAX)
 			{
 				entry.setValue(intval);
 			}
@@ -64,7 +66,7 @@ int GstPlayerOptions::update(const std::string &key, const std::string &val)
 		}
 		else if (entry.getType() == "string")
 		{
-			if (val.empty())
+			if (val.empty() || val.find('\0') != std::string::npos)
 			{
 				eWarning("GstPlayerOptions::update - empty string for '%s' setting", key.c_str());
 				ret = -2;
@@ -113,6 +115,21 @@ std::vector<std::string> GstPlayer::buildCommand()
 	std::vector<std::string> args;
 	args.push_back("gstplayer_gst-1.0");
 	args.push_back(mPath);
+	if (mPlayerOptions.openpliInterface)
+	{
+		// OpenPLi's e2i/gstplayer has a positional interface, not getopt.
+		SettingMap &settings = mPlayerOptions.GetSettingMap();
+		args.push_back(settings[GST_AUDIO_TRACK_IDX].isSet() ? settings[GST_AUDIO_TRACK_IDX].getValue() : "-1");
+		args.push_back("0"); // Keep ifdsrc disabled, as in OpenPLi's recipe patch.
+		args.push_back("0"); // is_live only affects ifdsrc; not a reconnect switch.
+		args.push_back(settings[GST_DOWNLOAD_BUFFER_PATH].isSet() ? settings[GST_DOWNLOAD_BUFFER_PATH].getValue() : "");
+		args.push_back(settings[GST_RING_BUFFER_MAXSIZE].isSet() ? settings[GST_RING_BUFFER_MAXSIZE].getValue() : "0");
+		args.push_back(settings[GST_BUFFER_DURATION].getValue());
+		args.push_back(settings[GST_BUFFER_SIZE].getValue());
+		for (HeaderMap::const_iterator i = mHeaders.begin(); i != mHeaders.end(); ++i)
+			args.push_back(i->first + "=" + i->second);
+		return args;
+	}
 	for (std::map<std::string,std::string>::const_iterator i(mHeaders.begin()); i!=mHeaders.end(); i++)
 	{
 		args.push_back("-H");
@@ -130,11 +147,8 @@ std::vector<std::string> GstPlayer::buildCommand()
 		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{
-			std::stringstream ss;
-			ss << i->second.getAppArg();
-			ss << " ";
-			ss << i->second.getValue();
-			args.push_back(ss.str());
+			args.push_back(i->second.getAppArg());
+			args.push_back(i->second.getValue());
 		}
 	}
 

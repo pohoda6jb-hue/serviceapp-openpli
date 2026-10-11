@@ -99,7 +99,7 @@ int PlayerApp::processStart(eMainloop *context)
 	CONNECT(console->stderrAvail, PlayerApp::stderrAvail);
 	const std::vector<std::string> args = buildCommand();
 	eDebugNoNewLine("PlayerApp::processStart: ");
-	char **cargs = (char **) malloc(sizeof(char *) * args.size()+1);
+	char **cargs = (char **) malloc(sizeof(char *) * (args.size() + 1));
 	for (size_t i=0; i <= args.size(); i++)
 	{
 		// execvp needs args array terminated with NULL

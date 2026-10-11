@@ -17,6 +17,7 @@ plugin_LTLIBRARIES = serviceapp.la
 
 serviceapp_la_SOURCES = \
 	serviceapp.cpp \
+	playbackprofile.h \
 	extplayer.cpp \
 	scriptrun.cpp \
 	myconsole.cpp \

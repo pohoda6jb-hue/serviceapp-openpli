@@ -1,0 +1,30 @@
+name: Playback policy checks
+
+on:
+  push:
+    branches: [feature/openpli-ts-hls-profiles]
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  playback-policy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax and GUI configuration regression checks
+        run: |
+          python -m compileall -q src/plugin test
+          python test/test_plugin.py
+      - name: C++ playback policy and native Python API syntax
+        run: python test/check_playback.py
+      - name: Existing translation catalogs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gettext
+          for catalog in src/locale/*.po; do msgfmt --check "$catalog" -o /dev/null; done

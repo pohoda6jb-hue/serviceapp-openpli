@@ -9,12 +9,14 @@
 #include <lib/dvb/subtitle.h>
 
 #include "common.h"
+#include "playbackprofile.h"
 #include "extplayer.h"
 #include "scriptrun.h"
 #include "m3u8.h"
 
 struct eServiceAppOptions
 {
+	PlaybackProfileSettings playback;
 	bool autoTurnOnSubtitles;
 	bool preferEmbeddedSubtitles;
 	bool HLSExplorer;
