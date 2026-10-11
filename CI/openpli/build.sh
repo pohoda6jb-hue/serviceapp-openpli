@@ -27,6 +27,20 @@ git -C "$oe_dir" checkout --detach "$oe_revision"
 git -C "$oe_dir" config submodule.meta-python2.url https://git.openembedded.org/meta-python2
 git -C "$oe_dir" submodule update --init --jobs 4
 
+# The 9.2 branding recipe splits a full path at underscores. GitHub's /__w
+# prefix makes that field empty; strip the directory before parsing the name.
+python3 - "$oe_dir" <<'PY'
+from pathlib import Path
+import sys
+recipe = Path(sys.argv[1]) / 'meta-openpli/recipes-openpli/enigma2/enigma-info.bb'
+old = "| cut -d '_' -f 2 | xargs basename -s .bb"
+new = "| xargs -r -n 1 basename | cut -d '_' -f 2 | sed 's/\\.bb$//'"
+text = recipe.read_text()
+if text.count(old) != 1:
+    raise SystemExit('Unexpected enigma-info recipe; review the path parsing fix.')
+recipe.write_text(text.replace(old, new))
+PY
+
 cd "$oe_dir"
 MACHINE=vuduo4k make init BB_NUMBER_THREADS=2 PARALLEL_MAKE=-j2
 append_dir="$oe_dir/meta-local/recipes-openpli/serviceapp"
