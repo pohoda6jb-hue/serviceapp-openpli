@@ -50,6 +50,7 @@ jobs:
           SERVICEAPP_COMMIT: ${{ github.sha }}
         run: |
           chown -R builder:builder "$GITHUB_WORKSPACE"
+          install -d -o builder -g builder "$(dirname "$GITHUB_WORKSPACE")/openpli92-build"
           runuser -u builder -- env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
             SERVICEAPP_COMMIT="$SERVICEAPP_COMMIT" \
             bash "$GITHUB_WORKSPACE/CI/openpli/build.sh"

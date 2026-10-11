@@ -3,7 +3,9 @@ set -euo pipefail
 
 # Ubuntu 20.04 matches this older OE release's host Python requirements.
 source_dir=$(cd "$(dirname "$0")/../.." && pwd)
-oe_dir="$source_dir/.openpli-build"
+# base.bbclass excludes S and B from pseudo interception. Keep the OE tree
+# outside EXTERNALSRC, otherwise package ownership operations bypass pseudo.
+oe_dir="$(dirname "$source_dir")/openpli92-build"
 artifact_dir="$source_dir/artifacts"
 cache_dir="$source_dir/.openpli-cache"
 oe_revision=73ca1f1613f9b84c1bfc08a003bb4a0c59a3e0c0
@@ -73,7 +75,8 @@ cat >> build/conf/local.conf <<'EOF'
 BB_NUMBER_THREADS = "2"
 PARALLEL_MAKE = "-j2"
 INHERIT += "rm_work"
-RM_WORK_EXCLUDE += "enigma2-plugin-systemplugins-serviceapp"
+# libtool's staged configure is a symlink into its work tree in this release.
+RM_WORK_EXCLUDE += "enigma2-plugin-systemplugins-serviceapp libtool-native"
 BB_DISKMON_DIRS = "STOPTASKS,${TMPDIR},2G,100K ABORT,${TMPDIR},1G,50K"
 EOF
 export MACHINE=vuduo4k
@@ -85,7 +88,7 @@ if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
 fi
 # Compile independent translation units even if one fails, to collect all
 # remaining interface diagnostics in a single run. A failure still stops packaging.
-bitbake -k "$recipe"
+bitbake -c package_write_ipk "$recipe"
 
 find tmp/deploy -type f -path '*/ipk/*' -name "${recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
 if ! compgen -G "$artifact_dir/package/*.ipk" > /dev/null; then
