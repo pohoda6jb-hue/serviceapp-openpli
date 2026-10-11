@@ -51,7 +51,10 @@ EOF
 export MACHINE=vuduo4k
 cd build
 source env.source
-bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"
+if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
+    tail -n 100 "$artifact_dir/logs/recipe-environment.txt"
+    exit 1
+fi
 bitbake "$recipe"
 
 find tmp/deploy -type f -path '*/ipk/*' -name "${recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
