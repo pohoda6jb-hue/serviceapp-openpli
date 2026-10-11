@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: [vuduo4k, sf8008]
+        machine: [sf8008]
     runs-on: ubuntu-22.04
     timeout-minutes: 350
     container: ubuntu:20.04
