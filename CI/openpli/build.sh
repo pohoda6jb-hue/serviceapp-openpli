@@ -63,6 +63,9 @@ SRCREV = "${SERVICEAPP_COMMIT:-$(git -C "$source_dir" rev-parse HEAD)}"
 PV = "1+git177+openplits"
 PKGV = "\${PV}"
 PR = "r0.1"
+# libsigc++ 3 needs C++17; select the verified 9.2 Enigma2 interfaces.
+CXXFLAGS_append = " -std=gnu++17"
+CPPFLAGS_append = " -DSERVICEAPP_OPENPLI92"
 EOF
 # Build only this package and its compile dependencies, not an entire image/feed.
 cat >> build/conf/local.conf <<'EOF'

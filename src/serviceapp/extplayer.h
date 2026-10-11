@@ -296,8 +296,13 @@ public:
 		pCurrentVideo(NULL),
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
+#ifdef SERVICEAPP_OPENPLI92
+		mMessageMain(eApp, 1),
+		mMessageThread(this, 1),
+#else
 		mMessageMain(eApp, 1, "eServiceApp"),
 		mMessageThread(this, 1, "eServiceApp"),
+#endif
 		mTimerDelay(100), // updated play position timer
 		mWaitForUpdate(false),
 		mWaitForStop(false)
