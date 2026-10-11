@@ -1,4 +1,4 @@
-name: OpenPLi 9.2 Duo 4K package
+name: OpenPLi 9.2 receiver packages
 
 on:
   workflow_dispatch:
@@ -17,6 +17,11 @@ concurrency:
 
 jobs:
   package:
+    name: package (${{ matrix.machine }})
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: [vuduo4k, sf8008]
     runs-on: ubuntu-22.04
     timeout-minutes: 350
     container: ubuntu:20.04
@@ -42,8 +47,9 @@ jobs:
           path: |
             .openpli-cache/downloads
             .openpli-cache/sstate
-          key: openpli92-vuduo4k-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-
             openpli92-vuduo4k-73ca1f16-u20-v1-
       - name: Build ServiceApp against OpenPLi 9.2
         env:
@@ -53,6 +59,7 @@ jobs:
           install -d -o builder -g builder "$(dirname "$GITHUB_WORKSPACE")/openpli92-build"
           runuser -u builder -- env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
             SERVICEAPP_COMMIT="$SERVICEAPP_COMMIT" \
+            SERVICEAPP_MACHINE="${{ matrix.machine }}" \
             bash "$GITHUB_WORKSPACE/CI/openpli/build.sh"
       # Separate save action preserves completed tasks even when BitBake fails.
       - name: Save downloaded sources and completed build tasks
@@ -62,11 +69,11 @@ jobs:
           path: |
             .openpli-cache/downloads
             .openpli-cache/sstate
-          key: openpli92-vuduo4k-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          key: openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Save package and build provenance
         uses: actions/upload-artifact@v4
         with:
-          name: serviceapp-openpli92-vuduo4k
+          name: serviceapp-openpli92-${{ matrix.machine }}
           path: artifacts/package/
           if-no-files-found: error
           retention-days: 14
@@ -74,7 +81,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: openpli92-build-diagnostics
+          name: openpli92-build-diagnostics-${{ matrix.machine }}
           path: artifacts/logs/
           if-no-files-found: warn
           retention-days: 7

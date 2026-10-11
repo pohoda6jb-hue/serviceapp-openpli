@@ -3,6 +3,11 @@ set -euo pipefail
 
 # Ubuntu 20.04 matches this older OE release's host Python requirements.
 source_dir=$(cd "$(dirname "$0")/../.." && pwd)
+target_machine=${SERVICEAPP_MACHINE:-vuduo4k}
+case "$target_machine" in
+    vuduo4k|sf8008) ;;
+    *) echo "Unsupported receiver: $target_machine" >&2; exit 1 ;;
+esac
 # base.bbclass excludes S and B from pseudo interception. Keep the OE tree
 # outside EXTERNALSRC, otherwise package ownership operations bypass pseudo.
 oe_dir="$(dirname "$source_dir")/openpli92-build"
@@ -53,7 +58,7 @@ recipe.write_text(text.replace(old, new))
 PY
 
 cd "$oe_dir"
-MACHINE=vuduo4k make init BB_NUMBER_THREADS=2 PARALLEL_MAKE=-j2 \
+MACHINE="$target_machine" make init BB_NUMBER_THREADS=2 PARALLEL_MAKE=-j2 \
     DL_DIR="$cache_dir/downloads" SSTATE_DIR="$cache_dir/sstate"
 append_dir="$oe_dir/meta-local/recipes-openpli/serviceapp"
 mkdir -p "$append_dir"
@@ -79,7 +84,7 @@ INHERIT += "rm_work"
 RM_WORK_EXCLUDE += "enigma2-plugin-systemplugins-serviceapp libtool-native"
 BB_DISKMON_DIRS = "STOPTASKS,${TMPDIR},2G,100K ABORT,${TMPDIR},1G,50K"
 EOF
-export MACHINE=vuduo4k
+export MACHINE="$target_machine"
 cd build
 source env.source
 if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
@@ -96,7 +101,7 @@ if ! compgen -G "$artifact_dir/package/*.ipk" > /dev/null; then
     exit 1
 fi
 {
-    printf 'Target: OpenPLi 9.2 / vuduo4k / ARMv7 / Python 3\n'
+    printf 'Target: OpenPLi 9.2 / %s / ARMv7 / Python 3\n' "$target_machine"
     printf 'OpenPLi build revision: %s\n' "$oe_revision"
     printf 'ServiceApp revision: %s\n' "$(git -C "$source_dir" rev-parse HEAD)"
     git -C "$oe_dir" submodule status
