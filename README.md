@@ -12,6 +12,27 @@ serviceapp service for enigma2
 
 ## TS/HLS profiles and OpenPLi
 
+### Build a Duo 4K package on GitHub
+
+The **OpenPLi 9.2 Duo 4K package** Actions workflow builds only ServiceApp and
+its compile dependencies against the pinned OpenPLi `release-9.2` metadata
+(`73ca1f1613f9b84c1bfc08a003bb4a0c59a3e0c0`), using Ubuntu 20.04 and
+`MACHINE=vuduo4k`. It does not build a new image or install anything on a receiver.
+The older release is deliberately separate from current scarthgap metadata.
+
+Changes to the workflow/build script on the feature branch start a build.
+After the workflow is available on the default branch, Actions -> this workflow
+-> Run workflow also allows manual builds of a selected branch. Download the
+`serviceapp-openpli92-vuduo4k` artifact only from a successful run; it contains
+the runtime IPK, source revisions and SHA256 checksums. Logs are saved separately
+on failure. Artifacts expire after 14 days. An initial build may exceed a hosted
+runner's disk/time limits; failures do not produce an installable package.
+
+This package targets Duo 4K, not Duo 4K SE or Dreambox DM8000. Before installing,
+keep a receiver backup and a copy of the original ServiceApp package, and check
+the new package's dependencies against the receiver. Build success does not
+replace actual audio/video, seeking and network recovery tests on OpenPLi 9.2.
+
 Each service type (4097 when replaced, 5001, 5002) has its own **Playback
 profile**. Selecting a profile does not switch the player or replace Enigma2's
 ServiceMP3. The existing replacement and player settings still control that.
