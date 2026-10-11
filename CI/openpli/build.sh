@@ -66,6 +66,7 @@ PR = "r0.1"
 # libsigc++ 3 needs C++17; select the verified 9.2 Enigma2 interfaces.
 CXXFLAGS_append = " -std=gnu++17"
 CPPFLAGS_append = " -DSERVICEAPP_OPENPLI92"
+EXTRA_OEMAKE_append = " -k"
 EOF
 # Build only this package and its compile dependencies, not an entire image/feed.
 cat >> build/conf/local.conf <<'EOF'
@@ -82,7 +83,9 @@ if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
     tail -n 100 "$artifact_dir/logs/recipe-environment.txt"
     exit 1
 fi
-bitbake "$recipe"
+# Compile independent translation units even if one fails, to collect all
+# remaining interface diagnostics in a single run. A failure still stops packaging.
+bitbake -k "$recipe"
 
 find tmp/deploy -type f -path '*/ipk/*' -name "${recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
 if ! compgen -G "$artifact_dir/package/*.ipk" > /dev/null; then
