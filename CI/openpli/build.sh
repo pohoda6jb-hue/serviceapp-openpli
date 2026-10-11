@@ -29,6 +29,13 @@ git -C "$oe_dir" checkout --detach "$oe_revision"
 git -C "$oe_dir" config submodule.meta-python2.url https://git.openembedded.org/meta-python2
 git -C "$oe_dir" submodule update --init --jobs 4
 
+# OE install tasks run under pseudo (fake root), so Git sees another owner.
+# Trust only this job's checked-out sources; never use a wildcard exception.
+git config --global --add safe.directory "$source_dir"
+git config --global --add safe.directory "$oe_dir"
+git -C "$oe_dir" submodule foreach --recursive \
+    'git config --global --add safe.directory "$PWD"'
+
 # The 9.2 branding recipe splits a full path at underscores. GitHub's /__w
 # prefix makes that field empty; strip the directory before parsing the name.
 python3 - "$oe_dir" <<'PY'
