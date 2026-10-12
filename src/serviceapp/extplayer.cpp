@@ -259,12 +259,23 @@ int PlayerBackend::getLength(int& mseconds)
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
-	if (!playbackStarted || !pErrorMessage)
+	pthread_mutex_lock(&mWaitMutex);
+	if (!pErrorMessage)
 	{
+		pthread_mutex_unlock(&mWaitMutex);
 		return -1;
 	}
 	error = *pErrorMessage;
+	pthread_mutex_unlock(&mWaitMutex);
 	return 0;
+}
+
+void PlayerBackend::recvErrorMessage(errorMessage& message)
+{
+	pthread_mutex_lock(&mWaitMutex);
+	delete pErrorMessage;
+	pErrorMessage = new errorMessage(message);
+	pthread_mutex_unlock(&mWaitMutex);
 }
 
 int PlayerBackend::audioGetNumberOfTracks(int timeout)
