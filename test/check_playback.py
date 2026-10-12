@@ -88,5 +88,6 @@ with (nullcontext(build_dir) if build_dir else tempfile.TemporaryDirectory(prefi
     (path / 'bridge.cpp').write_text(policy_code + bridge)
     subprocess.run([os.environ.get('CXX', 'g++'), '-std=c++11', '-Wall', '-Wextra',
                     '-Wno-unused-parameter', '-fsyntax-only', '-I' + str(SRC),
-                    '-I' + sysconfig.get_path('include'), str(path / 'bridge.cpp')], check=True)
+                    '-I' + os.environ.get('SERVICEAPP_TEST_PYTHON_INCLUDE', sysconfig.get_path('include')),
+                    str(path / 'bridge.cpp')], check=True)
     print('Native Python bridge syntax check passed')

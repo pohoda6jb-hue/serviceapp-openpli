@@ -1898,19 +1898,28 @@ static PyObject *stream_set_settings(PyObject *self, PyObject *args)
 	PyObject *name, *value;
 	Py_ssize_t pos = 0;
 	while (PyDict_Next(dict, &pos, &name, &value)) {
+#if PY_MAJOR_VERSION >= 3
 		if (!PyUnicode_Check(name) || !PyUnicode_Check(value))
 			return PyErr_Format(PyExc_ValueError, "Stream options must be strings");
-#if PY_MAJOR_VERSION >= 3
 		const char *n = PyUnicode_AsUTF8(name), *v = PyUnicode_AsUTF8(value);
-#else
-		// This additive editor is Python 3; legacy builds keep the original API.
-		return PyErr_Format(PyExc_ValueError, "Per-stream editor requires Python 3");
-		const char *n = NULL, *v = NULL;
-#endif
 		if (!n || !v) return NULL;
-		if (std::string(n).find("sapp_") != 0)
+		std::string optionName(n), optionValue(v);
+#else
+		if ((!PyUnicode_Check(name) && !PyString_Check(name)) ||
+			(!PyUnicode_Check(value) && !PyString_Check(value)))
+			return PyErr_Format(PyExc_ValueError, "Stream options must be strings");
+		PyObject *encodedName = PyUnicode_Check(name) ? PyUnicode_AsUTF8String(name) : name;
+		PyObject *encodedValue = PyUnicode_Check(value) ? PyUnicode_AsUTF8String(value) : value;
+		if (!PyUnicode_Check(name)) Py_INCREF(encodedName);
+		if (!PyUnicode_Check(value)) Py_INCREF(encodedValue);
+		if (!encodedName || !encodedValue) { Py_XDECREF(encodedName); Py_XDECREF(encodedValue); return NULL; }
+		std::string optionName(PyString_AsString(encodedName)), optionValue(PyString_AsString(encodedValue));
+		Py_DECREF(encodedName);
+		Py_DECREF(encodedValue);
+#endif
+		if (optionName.find("sapp_") != 0)
 			return PyErr_Format(PyExc_ValueError, "Only ServiceApp options can be stored");
-		settings[n] = v;
+		settings[optionName] = optionValue;
 	}
 	if (settings.empty()) g_stream_settings.erase(key);
 	else g_stream_settings[key] = settings;

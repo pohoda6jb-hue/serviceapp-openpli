@@ -1,0 +1,24 @@
+name: VTi port preparation checks
+on:
+  push:
+    branches: [feature/vti-solo2-port]
+permissions:
+  contents: read
+jobs:
+  python-compatibility:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Existing Python 3 and policy regression checks
+        run: |
+          mkdir -p work/vti-test
+          SERVICEAPP_TEST_BUILD_DIR=work/vti-test python test/check_playback.py
+          python test/test_plugin.py
+          python test/test_streamsettings.py
+      - name: Actual Python 2.7 runtime and native API header checks
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work python:2.7.18-buster \
+            sh -ec 'python -m compileall -q src/plugin; python test/check_python2_streamsettings.py; g++ -std=c++11 -fsyntax-only -I src/serviceapp -I /usr/local/include/python2.7 work/vti-test/bridge.cpp'

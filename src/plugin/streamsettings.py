@@ -5,8 +5,14 @@ import os
 from . import serviceapp, _
 
 PATH = '/etc/enigma2/serviceapp-streams.json'
+try:
+    text_type = unicode
+except NameError:
+    text_type = str
 
 def stream_identity(path):
+    if not isinstance(path, text_type):
+        path = path.decode('utf-8')
     return hashlib.sha256(path.split('#', 1)[0].encode('utf-8')).hexdigest()
 
 def save_settings(identity, values):
@@ -21,7 +27,8 @@ def save_settings(identity, values):
         json.dump(data, handle)
         handle.flush()
         os.fsync(handle.fileno())
-    os.replace(temporary, PATH)
+    # rename replaces atomically on Enigma's Linux; replace is Python 3 only.
+    getattr(os, 'replace', os.rename)(temporary, PATH)
     serviceapp.stream_set_settings(identity, values)
 
 def load_settings():
@@ -29,7 +36,7 @@ def load_settings():
         with open(PATH) as handle:
             data = json.load(handle)
         return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except (IOError, OSError, ValueError):
         return {}
 
 def initialize():
@@ -107,7 +114,7 @@ def open_settings(session, **kwargs):
                 if template and (not template.startswith('/') or not template.endswith('XXXXXX') or '\x00' in template):
                     raise ValueError(_('Invalid download template'))
                 save_settings(identity, values)
-            except (OSError, ValueError) as error:
+            except (IOError, OSError, ValueError) as error:
                 self.session.open(MessageBox, str(error), type=MessageBox.TYPE_ERROR)
                 return
             self.close()
