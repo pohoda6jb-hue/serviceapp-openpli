@@ -730,7 +730,7 @@ void eServiceApp::gotExtPlayerMessage(int message)
 			break;
 		case PlayerMessage::stop:
 		{
-					if (m_recovery.isPending()) break;
+			if (m_recovery.isPending()) break;
 			unsigned delay = m_recovery.processExited();
 			if (delay)
 			{

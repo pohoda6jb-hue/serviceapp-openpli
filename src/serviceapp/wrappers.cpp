@@ -131,7 +131,10 @@ ssize_t readLine(SSL *ssl, int fd, char** buffer, size_t* bufsize)
 	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8);
 	while (1)
 	{
-		if (i >= 65536 || std::chrono::steady_clock::now() >= deadline) return -1;
+		if (i >= 65536 || std::chrono::steady_clock::now() >= deadline) {
+			(*buffer)[i < *bufsize ? i : *bufsize - 1] = '\0';
+			return -1;
+		}
 		if (i >= *bufsize)
 		{
 			char *newbuf = (char*)realloc(*buffer, (*bufsize)+1024);

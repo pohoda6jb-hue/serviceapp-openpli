@@ -31,10 +31,10 @@ index 6c0c857..e685892 100755
      }
  
 diff --git a/main/exteplayer.c b/main/exteplayer.c
-index 14830db..17345ee 100755
+index 14830db..78788fb 100755
 --- a/main/exteplayer.c
 +++ b/main/exteplayer.c
-@@ -513,7 +513,8 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
+@@ -513,10 +513,11 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
          case 'x':
              if (optarg[0] != '\0')
              {
@@ -43,8 +43,12 @@ index 14830db..17345ee 100755
 +                if (!playbackFiles->szSecondFile) return -1;
                  playbackFiles->szSecondFile[0] = '\0';
                  strncpy(playbackFiles->szSecondFile, optarg, IPTV_MAX_FILE_PATH-1);
-                 playbackFiles->szSecondFile[IPTV_MAX_FILE_PATH] = '\0';
-@@ -578,7 +579,8 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
+-                playbackFiles->szSecondFile[IPTV_MAX_FILE_PATH] = '\0';
++                playbackFiles->szSecondFile[IPTV_MAX_FILE_PATH - 1] = '\0';
+                 map_inter_file_path(playbackFiles->szSecondFile);
+             }
+             break;
+@@ -578,10 +579,11 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
          case 'F':
              if (optarg[0] != '\0')
              {
@@ -53,7 +57,11 @@ index 14830db..17345ee 100755
 +                if (!playbackFiles->szFirstMoovAtomFile) return -1;
                  playbackFiles->szFirstMoovAtomFile[0] = '\0';
                  strncpy(playbackFiles->szFirstMoovAtomFile, optarg, IPTV_MAX_FILE_PATH-1);
-                 playbackFiles->szFirstMoovAtomFile[IPTV_MAX_FILE_PATH] = '\0';
+-                playbackFiles->szFirstMoovAtomFile[IPTV_MAX_FILE_PATH] = '\0';
++                playbackFiles->szFirstMoovAtomFile[IPTV_MAX_FILE_PATH - 1] = '\0';
+                 map_inter_file_path(playbackFiles->szFirstMoovAtomFile);
+             }
+             break;
 @@ -594,14 +596,14 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
      if (0 == ret && optind < argc)
      {

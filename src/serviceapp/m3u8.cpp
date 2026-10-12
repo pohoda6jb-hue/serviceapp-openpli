@@ -188,6 +188,12 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
 
     size_t bufferSize = 1024;
     char *lineBuffer = (char *) malloc(bufferSize);
+    if (!lineBuffer) {
+        if (ssl) { SSL_free(ssl); SSL_CTX_free(ssl_ctx); }
+        ::close(sd);
+        return -1;
+    }
+    lineBuffer[0] = '\0';
 
     int statusCode = 0;
     char protocol[64], statusMessage[64];
@@ -220,6 +226,7 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
         fprintf(stderr, "[%s] Response[%d](size=%d): %s\n", __func__, lines++, result, lineBuffer);
         if (result < 0)
         {
+            streams.clear();
             fprintf(stderr, "[%s] - end of read, nothing was read\n", __func__);
             break;
         }
