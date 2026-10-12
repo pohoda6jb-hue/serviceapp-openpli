@@ -1,4 +1,6 @@
 #include <sstream>
+#include <cerrno>
+#include <climits>
 
 #include <lib/base/eerror.h>
 #include "exteplayer3.h"
@@ -46,7 +48,7 @@ ExtEplayer3Options::ExtEplayer3Options()
 	settingMap[EXT3_PLAYBACK_INIFITY_LOOP]      = SettingEntry ("-i", "bool");
 	settingMap[EXT3_PLAYBACK_LIVETS]            = SettingEntry ("-v", "bool");
 	settingMap[EXT3_RTMP_PROTOCOL]              = SettingEntry ("-n", "int");
-	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "bool");
+	settingMap[EXT3_PLAYBACK_PROGRESSIVE]       = SettingEntry ("-o", "int");
 	settingMap[EXT3_NICE_VALUE]                 = SettingEntry ("-p", "int");
 	settingMap[EXT3_PLAYBACK_MPEGTS_PROGRAM]    = SettingEntry ("-P", "int");
 	settingMap[EXT3_PLAYBACK_AUDIO_TRACK_ID]    = SettingEntry ("-t", "int");
@@ -78,9 +80,16 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 		else if (entry.getType() == "int")
 		{
 			char *endptr = NULL;
-			int intval = -1;
-			intval = strtol(val.c_str(), &endptr , 10);
-			if (!*endptr && intval >= 0)
+			errno = 0;
+			long intval = strtol(val.c_str(), &endptr, 10);
+			bool valid = !val.empty() && endptr != val.c_str() && !*endptr && !errno && intval <= INT_MAX;
+			if (key == EXT3_NICE_VALUE)
+				valid = valid && intval >= -20 && intval <= 19;
+			else
+				valid = valid && intval >= 0;
+			if (key == EXT3_PLAYBACK_PROGRESSIVE)
+				valid = valid && intval <= 1;
+			if (valid)
 			{
 				if (key == EXT3_SW_DECODING_AAC || key == EXT3_RTMP_PROTOCOL)
 				{
@@ -107,6 +116,25 @@ int ExtEplayer3Options::update(const std::string &key, const std::string &val)
 		}
 		else if (entry.getType() == "string")
 		{
+			if (val.empty() || val.find('\0') != std::string::npos)
+				ret = -2;
+			else if (key == EXT3_FFMPEG_SETTING_STRING)
+			{
+				// Each semicolon-separated entry becomes one repeated -f key=value.
+				std::stringstream values(val);
+				std::string option;
+				while (std::getline(values, option, ';'))
+				{
+					size_t equal = option.find('=');
+					if (equal == 0 || equal == std::string::npos || equal == option.size() - 1 ||
+						option.substr(0, equal).find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != std::string::npos)
+						ret = -2;
+				}
+				if (val[val.size() - 1] == ';') ret = -2;
+				if (!ret) entry.setValue(val);
+			}
+			else
+				entry.setValue(val);
 		}
 	}
 	else
@@ -178,11 +206,21 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 		}
 		if (i->second.getType() == "int" || i->second.getType() == "string")
 		{
-			std::stringstream ss;
-			ss << i->second.getAppArg();
-			ss << " ";
-			ss << i->second.getValue();
-			args.push_back(ss.str());
+			if (i->first == EXT3_FFMPEG_SETTING_STRING)
+			{
+				std::stringstream values(i->second.getValue());
+				std::string option;
+				while (std::getline(values, option, ';'))
+				{
+					args.push_back("-f");
+					args.push_back(option);
+				}
+			}
+			else
+			{
+				args.push_back(i->second.getAppArg());
+				args.push_back(i->second.getValue());
+			}
 		}
 	}
 	return args;
@@ -235,7 +273,8 @@ int ExtEplayer3::sendSeekRelative(int seconds)
 
 void ExtEplayer3::handleProcessStopped(int retval)
 {
-	recvStopped(0);
+	eDebug("ExtEplayer3 process exit status: %d", retval);
+	recvStopped(retval);
 }
 
 void ExtEplayer3::handleJsonOutput(cJSON *json)
@@ -247,7 +286,16 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	const char *key = json->child->string;
 	cJSON* value = cJSON_GetObjectItem(json, key);
 
-	if (!strcmp(key, "PLAYBACK_PLAY"))
+	if (!strcmp(key, "FF_ERROR") || !strcmp(key, "FF_READ_ERROR"))
+	{
+		errorMessage error;
+		cJSON *code = cJSON_GetObjectItem(value, "code"), *msg = cJSON_GetObjectItem(value, "msg");
+		if (code) error.code = code->valueint;
+		if (msg && msg->valuestring) error.message = msg->valuestring;
+		eDebug("ExtEplayer3 stream error %d: %s", error.code, error.message.c_str());
+		recvErrorMessage(error);
+	}
+	else if (!strcmp(key, "PLAYBACK_PLAY"))
 	{
 		if (!cJSON_GetObjectItem(value, "sts")->valueint)
 			recvStarted(0);

@@ -9,6 +9,7 @@
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
+#include "playerprotocol.h"
 #include "subtitles/subtitles.h"
 
 #ifndef eLog
@@ -29,6 +30,7 @@ class PlayerApp: public Object
 {
 	ePtr<eConsoleContainer> console;
 	std::string jsonstr;
+	PlayerJsonLines m_json_lines;
 	unsigned int parseOutput;
 	unsigned int truncated;
 	void stdoutAvail(const char *data);
@@ -282,7 +284,7 @@ class PlayerBackend: public Object, public eThread, public eMainloop, public iPl
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message);
 	void recvSubtitleMessage(subtitleMessage& sub);
 
 public:
@@ -296,8 +298,13 @@ public:
 		pCurrentVideo(NULL),
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
+#ifdef SERVICEAPP_OPENPLI92
+		mMessageMain(eApp, 1),
+		mMessageThread(this, 1),
+#else
 		mMessageMain(eApp, 1, "eServiceApp"),
 		mMessageThread(this, 1, "eServiceApp"),
+#endif
 		mTimerDelay(100), // updated play position timer
 		mWaitForUpdate(false),
 		mWaitForStop(false)
