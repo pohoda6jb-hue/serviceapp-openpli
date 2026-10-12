@@ -67,13 +67,22 @@ inherit externalsrc
 EXTERNALSRC = "$source_dir"
 EXTERNALSRC_BUILD = "\${WORKDIR}/serviceapp-build"
 SRCREV = "${SERVICEAPP_COMMIT:-$(git -C "$source_dir" rev-parse HEAD)}"
-PV = "1+git177+openplits"
+PV = "1+git178+openplits"
 PKGV = "\${PV}"
 PR = "r0.1"
 # libsigc++ 3 needs C++17; select the verified 9.2 Enigma2 interfaces.
 CXXFLAGS_append = " -std=gnu++17"
 CPPFLAGS_append = " -DSERVICEAPP_OPENPLI92"
 EXTRA_OEMAKE_append = " -k"
+EOF
+player_append_dir="$oe_dir/meta-local/recipes-multimedia/exteplayer3"
+mkdir -p "$player_append_dir/files"
+cp "$source_dir/CI/openpli/exteplayer3-live.patch" "$player_append_dir/files/"
+cat > "$player_append_dir/exteplayer3_git.bbappend" <<'EOF'
+FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
+SRCREV = "e258b47863fae1d74dbd1d707c948ae4232fea64"
+SRC_URI += " file://exteplayer3-live.patch"
+PR = "r0.1"
 EOF
 # Build only this package and its compile dependencies, not an entire image/feed.
 cat >> build/conf/local.conf <<'EOF'
@@ -93,9 +102,11 @@ if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
 fi
 # Compile independent translation units even if one fails, to collect all
 # remaining interface diagnostics in a single run. A failure still stops packaging.
+bitbake -c package_write_ipk exteplayer3
 bitbake -c package_write_ipk "$recipe"
 
 find tmp/deploy -type f -path '*/ipk/*' -name "${recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
+find tmp/deploy -type f -path '*/ipk/*' -name "exteplayer3_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
 if ! compgen -G "$artifact_dir/package/*.ipk" > /dev/null; then
     echo 'No runtime IPK was produced.' >&2
     exit 1
@@ -105,7 +116,7 @@ fi
     printf 'OpenPLi build revision: %s\n' "$oe_revision"
     printf 'ServiceApp revision: %s\n' "$(git -C "$source_dir" rev-parse HEAD)"
     git -C "$oe_dir" submodule status
-    printf '\nVerify on the receiver before routine use. No image/player/kernel packages are included.\n'
+    printf '\nIncludes ServiceApp and patched exteplayer3. FFmpeg and image/kernel packages are not included.\n'
 } > "$artifact_dir/package/BUILD-INFO.txt"
 cd "$artifact_dir/package"
 sha256sum ./*.ipk > SHA256SUMS

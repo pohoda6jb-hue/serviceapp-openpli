@@ -26,6 +26,8 @@ code = r'''
 #define NO_UCHARDET
 #include "common.h"
 #include "playbackprofile.h"
+#include "recovery.h"
+#include "playerprotocol.h"
 #include <cassert>
 #include <cerrno>
 #include <climits>
@@ -62,6 +64,8 @@ public:
 struct eServiceReference { int type; std::string path; };
 struct eServiceFactoryApp { enum { idServiceMP3=4097, idServiceGstPlayer=5001, idServiceExtEplayer3=5002 }; };
 HeaderMap getHeaders(const std::string &) { return HeaderMap(); }
+HeaderMap serviceHeaders(const std::string &) { return HeaderMap(); }
+static std::map<std::string, HeaderMap> g_stream_settings;
 '''
 code += section(read('serviceapp.h'), 'struct eServiceAppOptions', '#if SIGCXX_MAJOR_VERSION')
 code += section(ext, 'std::vector<std::string> ExtEplayer3::buildCommand()', 'int ExtEplayer3::start(')

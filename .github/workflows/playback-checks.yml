@@ -21,6 +21,7 @@ jobs:
         run: |
           python -m compileall -q src/plugin test
           python test/test_plugin.py
+          python test/test_streamsettings.py
       - name: C++ playback policy and native Python API syntax
         run: python test/check_playback.py
       - name: Existing translation catalogs

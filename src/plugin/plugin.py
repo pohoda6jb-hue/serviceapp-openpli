@@ -523,7 +523,11 @@ def play_gstplayer(session, service, **kwargs):
 
 
 def Plugins(**kwargs):
+    from .streamsettings import initialize, open_settings
+    initialize()
     return [
+            PluginDescriptor(name=_("ServiceApp: current stream"), description=_("Individual IPTV stream settings"),
+                where=PluginDescriptor.WHERE_EXTENSIONSMENU, needsRestart=False, fnc=open_settings),
             PluginDescriptor(name=_("ServiceApp"), description=_("setup player framework"),
                 where=PluginDescriptor.WHERE_MENU, needsRestart=False, fnc=menu),
             PluginDescriptor(name=_("ServiceApp"), description=_("Play with ServiceExtEplayer3"),

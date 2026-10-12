@@ -9,6 +9,7 @@
 
 #include "cJSON/cJSON.h"
 #include "myconsole.h"
+#include "playerprotocol.h"
 #include "subtitles/subtitles.h"
 
 #ifndef eLog
@@ -29,6 +30,7 @@ class PlayerApp: public Object
 {
 	ePtr<eConsoleContainer> console;
 	std::string jsonstr;
+	PlayerJsonLines m_json_lines;
 	unsigned int parseOutput;
 	unsigned int truncated;
 	void stdoutAvail(const char *data);
@@ -282,7 +284,7 @@ class PlayerBackend: public Object, public eThread, public eMainloop, public iPl
 	void recvVideoTrackCurrent(int status, videoStream& stream);
 	void recvSeekTo(int status, int seconds){eDebug("PlayerBackend::recvSeekTo %ds", seconds);}
 	void recvSeekRelative(int status, int seconds){eDebug("PlayerBackend::recvSeekRelative %ds", seconds);}
-	void recvErrorMessage(errorMessage& message){pErrorMessage = new errorMessage(message);};
+	void recvErrorMessage(errorMessage& message){delete pErrorMessage; pErrorMessage = new errorMessage(message);};
 	void recvSubtitleMessage(subtitleMessage& sub);
 
 public:

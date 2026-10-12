@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/sha.h>
 
 #include <lib/service/service.h>
 #include <lib/components/file_eraser.h>
@@ -62,6 +63,24 @@ static eServiceAppOptions *g_ServiceAppOptionsUser;
 static const std::string gReplaceServiceMP3Path = eEnv::resolve("$sysconfdir/enigma2/serviceapp_replaceservicemp3");
 static const bool gReplaceServiceMP3 = ( access( gReplaceServiceMP3Path.c_str(), F_OK ) != -1 );
 
+static std::map<std::string, HeaderMap> g_stream_settings;
+static HeaderMap serviceHeaders(const std::string &path)
+{
+	unsigned char digest[SHA256_DIGEST_LENGTH];
+	const std::string identity = path.substr(0, path.find('#'));
+	SHA256(reinterpret_cast<const unsigned char *>(identity.data()), identity.size(), digest);
+	std::string key;
+	const char *hex = "0123456789abcdef";
+	for (unsigned i = 0; i < sizeof(digest); ++i) { key += hex[digest[i] >> 4]; key += hex[digest[i] & 15]; }
+	HeaderMap result;
+	auto found = g_stream_settings.find(key);
+	if (found != g_stream_settings.end()) result = found->second;
+	HeaderMap embedded = getHeaders(path);
+	// Explicit URL options always override stored channel preferences.
+	for (auto const &entry : embedded) result[entry.first] = entry.second;
+	return result;
+}
+
 static HeaderMap getHttpHeaders(const std::string& path)
 {
 	HeaderMap headers = getHeaders(path);
@@ -114,7 +133,10 @@ static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &h
 {
 	BasePlayer *player = NULL;
 	PlaybackProfileSettings profile = profileSettings(ref, headers);
-	if (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3) )
+	HeaderMap::const_iterator overridePlayer = headers.find("sapp_player");
+	bool forceExt = overridePlayer != headers.end() && overridePlayer->second == "exteplayer3";
+	bool forceGst = overridePlayer != headers.end() && overridePlayer->second == "gstplayer";
+	if (forceExt || (!forceGst && (ref.type == eServiceFactoryApp::idServiceExtEplayer3 || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == EXTEPLAYER3))))
 	{
 		ExtEplayer3Options options;
 		if (g_useUserSettings)
@@ -129,7 +151,7 @@ static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &h
 		updatePlayerOptions(options, headers);
 		player = new ExtEplayer3(options);
 	}
-	else if (ref.type == eServiceFactoryApp::idServiceGstPlayer || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == GSTPLAYER) )
+	else if (forceGst || ref.type == eServiceFactoryApp::idServiceGstPlayer || (ref.type == eServiceFactoryApp::idServiceMP3 && g_playerServiceMP3 == GSTPLAYER) )
 	{
 		GstPlayerOptions options;
 		if (g_useUserSettings)
@@ -148,6 +170,9 @@ static BasePlayer *createPlayer(const eServiceReference& ref, const HeaderMap &h
 			options.GetSettingMap()[GST_RING_BUFFER_MAXSIZE] = SettingEntry("-r", "int");
 		}
 		updatePlayerOptions(options, headers);
+		HeaderMap::const_iterator interface = headers.find("sapp_interface");
+		if (interface != headers.end() && (interface->second == "flags" || interface->second == "openpli"))
+			options.openpliInterface = interface->second == "openpli";
 		player = new GstPlayer(options);
 	}
 	return player;
@@ -175,9 +200,12 @@ static eServiceAppOptions *createOptions(const eServiceReference& ref)
 		options = g_ServiceAppOptionsUser;
 	}
 	eServiceAppOptions *result = new eServiceAppOptions(*options);
-	PlaybackProfileSettings profile = profileSettings(ref, getHeaders(ref.path));
+	HeaderMap headers = serviceHeaders(ref.path);
+	PlaybackProfileSettings profile = profileSettings(ref, headers);
 	if (profile.profile != PROFILE_LEGACY)
 		result->HLSExplorer = profile.profile == PROFILE_HLS && profile.hlsExplorer;
+	if (headers["sapp_hls_explorer"] == "0" || headers["sapp_hls_explorer"] == "1")
+		result->HLSExplorer = headers["sapp_hls_explorer"] == "1";
 	return result;
 }
 
@@ -249,6 +277,7 @@ DEFINE_REF(eServiceApp);
 eServiceApp::eServiceApp(eServiceReference ref):
 	m_ref(ref),
 	m_subservices_checked(false),
+	m_start_waiting(false),
 	player(0),
 	extplayer(0),
 	m_resolver(0),
@@ -267,7 +296,19 @@ eServiceApp::eServiceApp(eServiceReference ref):
 	m_decoder_time_valid_state(0)
 {
 	options = createOptions(ref);
-	extplayer = createPlayer(ref, getHeaders(ref.path));
+	m_hls_probe_timer = eTimer::create(eApp);
+	CONNECT(m_hls_probe_timer->timeout, eServiceApp::finishHLSProbe);
+	HeaderMap recoveryHeaders = serviceHeaders(ref.path);
+	// Explicit live marking is mandatory, including for HLS VOD URLs.
+	bool live = recoveryHeaders["sapp_live"] == "1" && profileSettings(ref, recoveryHeaders).profile != PROFILE_VOD;
+	unsigned retries = 5;
+	const std::string retryText = recoveryHeaders["sapp_recovery_retries"];
+	if (!retryText.empty() && retryText.size() == 1 && retryText[0] >= '0' && retryText[0] <= '9')
+		retries = retryText[0] - '0';
+	m_recovery.configure(live, retries);
+	m_recovery_timer = eTimer::create(eApp);
+	CONNECT(m_recovery_timer->timeout, eServiceApp::retryPlayback);
+	extplayer = createPlayer(ref, serviceHeaders(ref.path));
 	player = new PlayerBackend(extplayer);
 
 	m_subtitle_widget = 0;
@@ -285,6 +326,10 @@ eServiceApp::eServiceApp(eServiceReference ref):
 
 eServiceApp::~eServiceApp()
 {
+	if (m_hls_probe) m_hls_probe->cancelled = true;
+	m_hls_probe_timer->stop();
+	m_recovery.stop();
+	m_recovery_timer->stop();
 	delete options;
 	delete player;
 	delete extplayer;
@@ -300,15 +345,51 @@ eServiceApp::~eServiceApp()
 
 
 
+void eServiceApp::beginHLSProbe()
+{
+	if (m_hls_probe || m_subservices_checked) return;
+	static std::atomic<unsigned> activeProbes(0);
+	m_hls_probe.reset(new HLSProbe);
+	auto state = m_hls_probe;
+	if (activeProbes.fetch_add(1) >= 2) {
+		activeProbes.fetch_sub(1);
+		state->done = true;
+		m_hls_probe_timer->start(1, true);
+		return;
+	}
+	const std::string url = m_ref.path;
+	const HeaderMap headers = getHttpHeaders(url);
+	// The worker owns its state and never captures the service or Enigma objects.
+	std::thread([state, url, headers]() {
+		M3U8VariantsExplorer explorer(url, headers, &state->cancelled);
+		state->streams = explorer.getStreams();
+		state->done.store(true, std::memory_order_release);
+		activeProbes.fetch_sub(1);
+	}).detach();
+	m_hls_probe_timer->start(100, false);
+}
+
+void eServiceApp::finishHLSProbe()
+{
+	if (!m_hls_probe || !m_hls_probe->done.load(std::memory_order_acquire)) return;
+	m_hls_probe_timer->stop();
+	if (m_hls_probe->cancelled || m_recovery.isStopped()) return;
+	m_subservice_vec.swap(m_hls_probe->streams);
+	m_subservices_checked = true;
+	fillSubservices();
+	m_event(this, evUpdatedEventInfo);
+	if (m_start_waiting) {
+		m_start_waiting = false;
+		start();
+	}
+}
+
 void eServiceApp::fillSubservices()
 {
-	m_subservice_vec.clear();
 	m_subserviceref_vec.clear();
 
 	if (isM3U8Url(m_ref.path))
 	{
-		M3U8VariantsExplorer ve(m_ref.path, getHttpHeaders(m_ref.path));
-		m_subservice_vec = ve.getStreams();
 		if (m_subservice_vec.empty())
 		{
 			eDebug("eServiceApp::fillSubservices - failed to retrieve subservices");
@@ -635,9 +716,12 @@ void eServiceApp::urlResolved(int success)
 
 void eServiceApp::gotExtPlayerMessage(int message)
 {
+	if (m_recovery.isStopped()) return;
 	switch (message)
 	{
 		case PlayerMessage::start:
+			// A start notification alone must not reset a retry loop.
+			// Retry budget is per service lifetime, preventing infinite start/exit loops.
 			eDebug("eServiceApp::gotExtPlayerMessage - start");
 			m_event_updated_info_timer->start(1000, true);
 #ifdef HAVE_EPG
@@ -645,6 +729,15 @@ void eServiceApp::gotExtPlayerMessage(int message)
 #endif
 			break;
 		case PlayerMessage::stop:
+		{
+					if (m_recovery.isPending()) break;
+			unsigned delay = m_recovery.processExited();
+			if (delay)
+			{
+				eDebug("ServiceApp: live process ended; retry in %u ms", delay);
+				m_recovery_timer->start(delay, true);
+				break;
+			}
 			eDebug("eServiceApp::gotExtPlayerMessage - stop");
 			// evEOF signals that end of file was reached and we
 			// could make operations like seek back or play again, 
@@ -654,6 +747,7 @@ void eServiceApp::gotExtPlayerMessage(int message)
 			// immediately but waits at the end for our input..
 			m_event(this, evEOF);
 			break;
+		}
 		case PlayerMessage::pause:
 			eDebug("eServiceApp::gotExtPlayerMessage - pause");
 			m_paused = true;
@@ -727,6 +821,13 @@ RESULT eServiceApp::connectEvent(const Slot2< void, iPlayableService*, int >& ev
 
 RESULT eServiceApp::start()
 {
+	if (m_recovery.isStopped()) return -1;
+	if (options->HLSExplorer && options->autoSelectStream && isM3U8Url(m_ref.path) && !m_subservices_checked)
+	{
+		m_start_waiting = true;
+		beginHLSProbe();
+		return 0;
+	}
 	if (!m_event_started)
 	{
 		m_event(this, evUpdatedEventInfo);
@@ -802,16 +903,41 @@ RESULT eServiceApp::start()
 		}
 	}
 	// don't pass fragment part to player
-	player->start(Url(path_str).url(), headers);
+	m_playback_url = Url(path_str).url();
+	m_playback_headers = headers;
+	player->start(m_playback_url, m_playback_headers);
 	return 0;
 }
 
 RESULT eServiceApp::stop()
 {
+	if (m_hls_probe) m_hls_probe->cancelled = true;
+	m_hls_probe_timer->stop();
+	m_start_waiting = false;
+	m_recovery.stop();
+	m_recovery_timer->stop();
 	eDebug("eServiceApp::stop");
 	if (m_resolver) m_resolver->stop();
 	player->stop();
 	return 0;
+}
+
+void eServiceApp::retryPlayback()
+{
+	if (!m_recovery.consumeRetry()) return;
+	// Recreate all per-process state, tracks and timers after joining the old thread.
+	delete player;
+	delete extplayer;
+	extplayer = createPlayer(m_ref, serviceHeaders(m_ref.path));
+	player = new PlayerBackend(extplayer);
+	CONNECT(player->gotPlayerMessage, eServiceApp::gotExtPlayerMessage);
+	m_embedded_subtitle_pages.clear();
+	m_subtitle_sync_timer->stop();
+	m_paused = false;
+	m_prev_subtitle_message = NULL;
+	m_prev_decoder_time = -1;
+	m_decoder_time_valid_state = 0;
+	player->start(m_playback_url, m_playback_headers);
 }
 
 // __iPausableService
@@ -1170,8 +1296,7 @@ int eServiceApp::getNumberOfSubservices()
 	std::string path_str(m_ref.path);
 	if (options->HLSExplorer && path_str.find(m_resolve_uri) && !m_subservices_checked)
 	{
-		fillSubservices();
-		m_subservices_checked = true;
+		beginHLSProbe();
 	}
 	eDebug("eServiceApp::getNumberOfSubservices - %zu", m_subserviceref_vec.size());
 	return m_subserviceref_vec.size();
@@ -1750,7 +1875,39 @@ static PyObject *player_set_option(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
+static PyObject *stream_set_settings(PyObject *self, PyObject *args)
+{
+	const char *identity;
+	PyObject *dict;
+	if (!PyArg_ParseTuple(args, "sO!", &identity, &PyDict_Type, &dict)) return NULL;
+	std::string key(identity);
+	if (key.size() != 64 || key.find_first_not_of("0123456789abcdef") != std::string::npos)
+		return PyErr_Format(PyExc_ValueError, "Invalid stream identity");
+	HeaderMap settings;
+	PyObject *name, *value;
+	Py_ssize_t pos = 0;
+	while (PyDict_Next(dict, &pos, &name, &value)) {
+		if (!PyUnicode_Check(name) || !PyUnicode_Check(value))
+			return PyErr_Format(PyExc_ValueError, "Stream options must be strings");
+#if PY_MAJOR_VERSION >= 3
+		const char *n = PyUnicode_AsUTF8(name), *v = PyUnicode_AsUTF8(value);
+#else
+		// This additive editor is Python 3; legacy builds keep the original API.
+		return PyErr_Format(PyExc_ValueError, "Per-stream editor requires Python 3");
+		const char *n = NULL, *v = NULL;
+#endif
+		if (!n || !v) return NULL;
+		if (std::string(n).find("sapp_") != 0)
+			return PyErr_Format(PyExc_ValueError, "Only ServiceApp options can be stored");
+		settings[n] = v;
+	}
+	if (settings.empty()) g_stream_settings.erase(key);
+	else g_stream_settings[key] = settings;
+	Py_RETURN_NONE;
+}
+
 static PyMethodDef serviceappMethods[] = {
+	{"stream_set_settings", stream_set_settings, METH_VARARGS, "Set per-stream options using a SHA256 identity."},
 	{"playback_profile_set_setting", playback_profile_set_setting, METH_VARARGS,
 	 "Set profile, separate TS/HLS GstPlayer buffers and optional HLS Explorer."},
 	{"player_set_option", player_set_option, METH_VARARGS,

@@ -2,6 +2,9 @@
 #define __serviceapp_h
 
 #include <limits>
+#include <atomic>
+#include <memory>
+#include <thread>
 #include <lib/service/iservice.h>
 #include <lib/base/ebase.h>
 #include <lib/base/message.h>
@@ -10,6 +13,7 @@
 
 #include "common.h"
 #include "playbackprofile.h"
+#include "recovery.h"
 #include "extplayer.h"
 #include "scriptrun.h"
 #include "m3u8.h"
@@ -47,6 +51,16 @@ class eServiceApp: public Object,
 	std::vector<M3U8StreamInfo> m_subservice_vec;
 	bool m_subservices_checked;
 	void fillSubservices();
+	struct HLSProbe {
+		std::atomic<bool> done, cancelled;
+		std::vector<M3U8StreamInfo> streams;
+		HLSProbe(): done(false), cancelled(false) {}
+	};
+	std::shared_ptr<HLSProbe> m_hls_probe;
+	ePtr<eTimer> m_hls_probe_timer;
+	bool m_start_waiting;
+	void beginHLSProbe();
+	void finishHLSProbe();
 
 #if SIGCXX_MAJOR_VERSION == 3
 	sigc::signal<void(iPlayableService*,int)> m_event;
@@ -95,6 +109,11 @@ class eServiceApp: public Object,
 	void pushSubtitles();
 	void signalEventUpdatedInfo();
 	void urlResolved(int success);
+	LiveRecovery m_recovery;
+	ePtr<eTimer> m_recovery_timer;
+	std::string m_playback_url;
+	HeaderMap m_playback_headers;
+	void retryPlayback();
 
 #ifdef HAVE_EPG
 	ePtr<eTimer> m_nownext_timer;

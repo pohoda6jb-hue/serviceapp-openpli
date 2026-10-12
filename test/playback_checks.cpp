@@ -1,5 +1,26 @@
 // Included by check_playback.py after unchanged production functions.
 int main() {
+    PlayerJsonLines protocol;
+    assert(protocol.append("plain log\n\n{\"FF_ER").empty());
+    auto received = protocol.append("ROR\":{\"code\":-1}}\n{\"J\":{\"ms\":2}}\n");
+    assert(received.size() == 2);
+    assert(protocol.append(std::string(70000, 'x') + "\n{\"ok\":1}\n").size() == 1);
+    LiveRecovery vod;
+    assert(vod.processExited() == 0);
+    LiveRecovery recoveryLive;
+    recoveryLive.configure(true, 2);
+    assert(recoveryLive.processExited() == 2000);
+    assert(recoveryLive.processExited() == 0); // duplicate exit cannot queue two retries
+    assert(recoveryLive.consumeRetry());
+    assert(recoveryLive.processExited() == 4000);
+    assert(recoveryLive.consumeRetry());
+    assert(recoveryLive.processExited() == 0); // exhausted budget
+    LiveRecovery switched;
+    switched.configure(true, 5);
+    assert(switched.processExited() > 0);
+    switched.stop();
+    assert(!switched.consumeRetry());
+    assert(switched.processExited() == 0);
     g_GstPlayerOptionsServiceMP3 = new GstPlayerOptions();
     g_GstPlayerOptionsServiceGst = new GstPlayerOptions();
     g_GstPlayerOptionsUser = new GstPlayerOptions();

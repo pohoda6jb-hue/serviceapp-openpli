@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <atomic>
+#include <chrono>
 
 #include "wrappers.h"
 #include "common.h"
@@ -29,13 +31,15 @@ class M3U8VariantsExplorer
     HeaderMap headers;
     std::vector<M3U8StreamInfo> streams;
     const unsigned int redirectLimit;
+    const std::atomic<bool> *cancelled;
+    std::chrono::steady_clock::time_point deadline;
     int parseStreamInfoAttributes(const char *line, M3U8StreamInfo& info);
     int getVariantsFromMasterUrl(const std::string& url, HeaderMap& headers, unsigned int redirect);
 public:
-    M3U8VariantsExplorer(const std::string& url, const HeaderMap& headers):
+    M3U8VariantsExplorer(const std::string& url, const HeaderMap& headers, const std::atomic<bool> *cancelled = NULL):
         url(url),
         headers(headers),
-        redirectLimit(5){};
+        redirectLimit(5), cancelled(cancelled), deadline(std::chrono::steady_clock::now() + std::chrono::seconds(8)) {};
     std::vector<M3U8StreamInfo> getStreams();
 
 };

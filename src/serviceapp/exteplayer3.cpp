@@ -273,7 +273,8 @@ int ExtEplayer3::sendSeekRelative(int seconds)
 
 void ExtEplayer3::handleProcessStopped(int retval)
 {
-	recvStopped(0);
+	eDebug("ExtEplayer3 process exit status: %d", retval);
+	recvStopped(retval);
 }
 
 void ExtEplayer3::handleJsonOutput(cJSON *json)
@@ -285,7 +286,16 @@ void ExtEplayer3::handleJsonOutput(cJSON *json)
 	const char *key = json->child->string;
 	cJSON* value = cJSON_GetObjectItem(json, key);
 
-	if (!strcmp(key, "PLAYBACK_PLAY"))
+	if (!strcmp(key, "FF_ERROR") || !strcmp(key, "FF_READ_ERROR"))
+	{
+		errorMessage error;
+		cJSON *code = cJSON_GetObjectItem(value, "code"), *msg = cJSON_GetObjectItem(value, "msg");
+		if (code) error.code = code->valueint;
+		if (msg && msg->valuestring) error.message = msg->valuestring;
+		eDebug("ExtEplayer3 stream error %d: %s", error.code, error.message.c_str());
+		recvErrorMessage(error);
+	}
+	else if (!strcmp(key, "PLAYBACK_PLAY"))
 	{
 		if (!cJSON_GetObjectItem(value, "sts")->valueint)
 			recvStarted(0);

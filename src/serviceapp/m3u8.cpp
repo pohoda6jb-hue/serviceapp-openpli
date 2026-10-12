@@ -189,12 +189,12 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
     size_t bufferSize = 1024;
     char *lineBuffer = (char *) malloc(bufferSize);
 
-    int statusCode;
+    int statusCode = 0;
     char protocol[64], statusMessage[64];
 
     int result = readLine(ssl, sd, &lineBuffer, &bufferSize);
     fprintf(stderr, "[%s] Response[%d](size=%d): %s\n", __func__, lines++, result, lineBuffer);
-    result = sscanf(lineBuffer, "%99s %d %99s", protocol, &statusCode, statusMessage);
+    result = result < 0 ? 0 : sscanf(lineBuffer, "%63s %d %63s", protocol, &statusCode, statusMessage);
     if (result != 3 || (statusCode != 200 && statusCode != 301 && statusCode != 302))
     {
             fprintf(stderr, "[%s] - wrong http response code: %d\n", __func__, statusCode);
@@ -211,6 +211,11 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
     std::string redirectUrl;
     while(1)
     {
+        if ((cancelled && cancelled->load()) || std::chrono::steady_clock::now() >= deadline || contentSize > 1048576 || lines > 10000)
+        {
+            streams.clear();
+            break;
+        }
         result = readLine(ssl, sd, &lineBuffer, &bufferSize);
         fprintf(stderr, "[%s] Response[%d](size=%d): %s\n", __func__, lines++, result, lineBuffer);
         if (result < 0)
@@ -272,6 +277,16 @@ int M3U8VariantsExplorer::getVariantsFromMasterUrl(const std::string& url, Heade
         }
         else
         {
+            // A variant URL alone loses external rendition groups. Preserve
+            // the master and let FFmpeg select synchronized audio/video.
+            if (!strncmp(lineBuffer, "#EXT-X-MEDIA:", 13) ||
+                (!strncmp(lineBuffer, M3U8_STREAM_INFO, strlen(M3U8_STREAM_INFO)) &&
+                 (strstr(lineBuffer, "AUDIO=") || strstr(lineBuffer, "VIDEO=") || strstr(lineBuffer, "SUBTITLES="))))
+            {
+                streams.clear();
+                ret = -1;
+                break;
+            }
             contentLines++;
             contentSize += result + 1; // newline char
             if (!m3u8HeaderParsed)

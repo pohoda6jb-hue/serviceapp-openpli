@@ -121,6 +121,11 @@ it does not reset user-selected audio decoding or advanced FFmpeg options.
 
 ### Reconnect and timeout limits
 
+The SF8008 experiment now includes a patched exteplayer3 and opt-in per-stream
+process recovery. See [changes, limits and receiver tests](CI/openpli/TESTING.md).
+For the patched player, explicit HTTP options are preserved; the original
+upstream behavior described below still applies to unmodified feed players.
+
 The inspected ExtEplayer3 copies `-f` options into an AVFormat dictionary, then
 sets HTTP(S) `timeout=20000000` and `reconnect=1` itself. Live TS additionally sets
 `seekable=0`, `reconnect_at_eof=1`, and `reconnect_streamed=1`. Therefore GUI knobs
