@@ -21,6 +21,8 @@ upgrade is included. Keep the feed versions available for rollback.
 * HLS Explorer is optional per stream. Fetching runs in an independent worker;
   results from stopped services are discarded. At most two workers run at once.
   Slow DNS may outlive cancellation, but never blocks the Enigma main thread.
+  Startup falls back to native master handling after eight seconds even if a
+  DNS lookup or TLS handshake has not returned yet.
   External audio/video/subtitle rendition groups cause fallback to native HLS.
 * exteplayer3 retains OpenPLi defaults, but explicit `-f` HTTP settings are no
   longer overwritten. No new CLI switches were invented. Read failures carry

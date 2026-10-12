@@ -58,6 +58,7 @@ class eServiceApp: public Object,
 	};
 	std::shared_ptr<HLSProbe> m_hls_probe;
 	ePtr<eTimer> m_hls_probe_timer;
+	std::chrono::steady_clock::time_point m_hls_deadline;
 	bool m_start_waiting;
 	void beginHLSProbe();
 	void finishHLSProbe();

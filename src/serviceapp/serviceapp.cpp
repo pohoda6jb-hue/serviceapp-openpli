@@ -348,6 +348,7 @@ eServiceApp::~eServiceApp()
 void eServiceApp::beginHLSProbe()
 {
 	if (m_hls_probe || m_subservices_checked) return;
+	m_hls_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8);
 	static std::atomic<unsigned> activeProbes(0);
 	m_hls_probe.reset(new HLSProbe);
 	auto state = m_hls_probe;
@@ -371,7 +372,17 @@ void eServiceApp::beginHLSProbe()
 
 void eServiceApp::finishHLSProbe()
 {
-	if (!m_hls_probe || !m_hls_probe->done.load(std::memory_order_acquire)) return;
+	if (!m_hls_probe || m_recovery.isStopped()) return;
+	if (!m_hls_probe->done.load(std::memory_order_acquire)) {
+		if (std::chrono::steady_clock::now() < m_hls_deadline) return;
+		// DNS/TLS cancellation can be delayed by system libraries. Never wait
+		// for them before opening the original master through the player.
+		m_hls_probe->cancelled = true;
+		m_hls_probe_timer->stop();
+		m_subservices_checked = true;
+		if (m_start_waiting) { m_start_waiting = false; start(); }
+		return;
+	}
 	m_hls_probe_timer->stop();
 	if (m_hls_probe->cancelled || m_recovery.isStopped()) return;
 	m_subservice_vec.swap(m_hls_probe->streams);
