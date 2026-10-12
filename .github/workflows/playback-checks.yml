@@ -24,6 +24,8 @@ jobs:
           python test/test_streamsettings.py
       - name: C++ playback policy and native Python API syntax
         run: python test/check_playback.py
+      - name: Production HLS parser with local HTTP fixtures
+        run: python test/check_hls.py
       - name: Existing translation catalogs
         run: |
           sudo apt-get update -qq
