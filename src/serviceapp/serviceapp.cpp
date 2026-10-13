@@ -515,7 +515,12 @@ void eServiceApp::updateEpgCacheNowNext()
 	}
 	if (next)
 	{
+#ifdef SERVICEAPP_VTI15
+		// VTi synchronizes the system clock; its older handler has no nowTime API.
+		time_t now = time(NULL);
+#else
 		time_t now = eDVBLocalTimeHandler::getInstance()->nowTime();
+#endif
 		refreshtime = (int)(next->getBeginTime() - now) + 3;
 		if (refreshtime <= 0 || refreshtime > 60)
 		{

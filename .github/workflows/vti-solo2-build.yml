@@ -55,7 +55,7 @@ jobs:
             sudo chown "$(id -u):$(id -g)" work/vti-mips-base.tar
           fi
           sudo mkdir -p work/mips-root/src
-          tar --exclude=.git --exclude=work/mips-root -cf - . | sudo tar -xf - -C work/mips-root/src
+          tar --exclude=.git --exclude=work/mips-root --exclude=work/vti-mips-base.tar -cf - . | sudo tar -xf - -C work/mips-root/src
       - uses: actions/cache/save@v4
         if: steps.mips-cache.outputs.cache-hit != 'true'
         with:

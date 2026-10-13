@@ -48,7 +48,7 @@ def main():
     ipk(out / 'enigma2-plugin-systemplugins-serviceapp_1+git179+vtilive-r0.1_mips32el.ipk',
         'Package: enigma2-plugin-systemplugins-serviceapp\nVersion: 1+git179+vtilive-r0.1\n'
         'Description: Experimental TS/HLS profiles and live recovery for VTi 15 Solo2\n'
-        'Depends: enigma2, python-core, python-json, python-crypt, exteplayer3, uchardet, '
+        'Depends: enigma2 (= vti-15.0.04-20200921-r01r04), python-core, python-json, python-crypt, exteplayer3, uchardet, '
         'libsigc-1.2-5, libstdc++6 (>= 4.9.2), libc6 (>= 2.21), '
         'libssl1.0.0, libcrypto1.0.0\nRecommends: gstplayer\n' + common, files)
     ipk(out / 'exteplayer3_69+gitr136+e258b47-r0.vti1_mips32el.ipk',
@@ -66,6 +66,11 @@ opkg install uchardet python-json python-crypt gstplayer
 opkg install /tmp/exteplayer3_69+gitr136+e258b47-r0.vti1_mips32el.ipk /tmp/enigma2-plugin-systemplugins-serviceapp_1+git179+vtilive-r0.1_mips32el.ipk
 Nepoužívej --force-depends ani --force-architecture. Při chybě instalaci neopakuj s vynucením.
 Restartuj GUI přes menu přijímače.
+
+U IPTV kanálů typu 4097 nejprve v hlavním nastavení ServiceApp zvol:
+Enigma2 playback system = serviceapp a Player = exteplayer3. Potvrď restart GUI.
+Kanály typu 5002 používají exteplayer3 přes ServiceApp přímo.
+Samotné uložení nastavení streamu nepřepne původní přehrávač Enigmy na ServiceApp.
 
 Pro test streamu otevři Rozšíření -> ServiceApp: current stream:
 Player = exteplayer3; profil Live TS nebo HLS; Live stream recovery = Live;
