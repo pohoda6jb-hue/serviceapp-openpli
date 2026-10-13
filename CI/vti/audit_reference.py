@@ -92,6 +92,8 @@ def audit(package):
         'iStreamedService': 32,
         'eTimer': 24,
         'eConnection': 24,
+        'iSubtitleUser': 28,
+        'iSubtitleOutput': 40,
     }
     for name, expected in tables.items():
         symbol = '_ZTV%d%s' % (len(name), name)
@@ -107,6 +109,13 @@ def audit(package):
         'eTimer::startLongTimer(int)': '_ZN6eTimer14startLongTimerEi',
         'eConnection::AddRef()': '_ZN11eConnection6AddRefEv',
         'eConnection::Release()': '_ZN11eConnection7ReleaseEv',
+        'eServiceMP3::enableSubtitles(user,track)':
+            '_ZN11eServiceMP315enableSubtitlesEP13iSubtitleUserRN15iSubtitleOutput13SubtitleTrackE',
+        'eServiceMP3::disableSubtitles()': '_ZN11eServiceMP316disableSubtitlesEv',
+        'eServiceMP3::getCachedSubtitle(track)':
+            '_ZN11eServiceMP317getCachedSubtitleERN15iSubtitleOutput13SubtitleTrackE',
+        'eServiceMP3::getSubtitleList(vector)':
+            '_ZN11eServiceMP315getSubtitleListERSt6vectorIN15iSubtitleOutput13SubtitleTrackESaIS2_EE',
     }
     for symbol in required.values():
         if symbol not in symbols:

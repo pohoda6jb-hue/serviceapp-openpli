@@ -14,13 +14,18 @@ tar xzf libsigc.tar.gz
 cd libsigc++-1.2.5
 ./configure --disable-dependency-tracking > "$sdk/sigc-configure.log" 2>&1
 # This release generates slot.h/signal.h with m4 during make, not configure.
-make -C sigc++ -j2 > "$sdk/sigc-make.log" 2>&1
+make -C sigc++ slot.h signal.h bind.h bind_return.h object_slot.h \
+  retype_return.h class_slot.h hide.h retype.h method_slot.h \
+  > "$sdk/sigc-make.log" 2>&1
 cd "$sdk"
 git init -q vuplus
 git -C vuplus fetch --depth 1 https://github.com/OpenVuPlus/dvbapp.git \
   847b84273e9696223fd0f50d1957309cfee2caec
 git -C vuplus checkout -q --detach FETCH_HEAD
 cd "$root"
+# VTi exports the newer subtitle methods (confirmed by the pinned binary),
+# while public Vu+ still declares the older eWidget/Python-list interface.
+patch -p1 -d "$sdk/vuplus" < CI/vti/vuplus-subtitle-interface.patch
 cat > "$sdk/check.cpp" <<'EOF'
 #include "serviceapp.h"
 #include <type_traits>

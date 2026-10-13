@@ -1,0 +1,51 @@
+--- a/lib/service/iservice.h
++++ b/lib/service/iservice.h
+@@ -638,14 +638,44 @@
+ class eWidget;
+ class PyList;
+ 
++// Subtitle declarations from OpenPLi/enigma2, GPL-2.0:
++// 2d10a35f406fb7e798a42c8a502e26458c6e7ef7/lib/service/iservice.h
++// Their method prototypes match exports in the pinned VTi Solo2 executable.
++// This patch is for syntax verification; it does not certify object layouts.
++struct eDVBTeletextSubtitlePage;
++struct eDVBSubtitlePage;
++struct ePangoSubtitlePage;
++class eRect;
++class gRegion;
++class gPixmap;
++
++SWIG_IGNORE(iSubtitleUser);
++class iSubtitleUser
++{
++public:
++	virtual void setPage(const eDVBTeletextSubtitlePage &p) = 0;
++	virtual void setPage(const eDVBSubtitlePage &p) = 0;
++	virtual void setPage(const ePangoSubtitlePage &p) = 0;
++	virtual void setPixmap(ePtr<gPixmap> &pixmap, gRegion changed, eRect dest) = 0;
++	virtual void destroy() = 0;
++};
++
+ SWIG_IGNORE(iSubtitleOutput);
+ class iSubtitleOutput: public iObject
+ {
+ public:
+-	virtual RESULT enableSubtitles(eWidget *parent, SWIG_PYOBJECT(ePyObject) entry)=0;
+-	virtual RESULT disableSubtitles(eWidget *parent)=0;
+-	virtual PyObject *getSubtitleList()=0;
+-	virtual PyObject *getCachedSubtitle()=0;
++	struct SubtitleTrack
++	{
++		int type;
++		int pid;
++		int page_number;
++		int magazine_number;
++		std::string language_code;
++	};
++	virtual RESULT enableSubtitles(iSubtitleUser *user, SubtitleTrack &track) = 0;
++	virtual RESULT disableSubtitles() = 0;
++	virtual RESULT getCachedSubtitle(SubtitleTrack &track) = 0;
++	virtual RESULT getSubtitleList(std::vector<SubtitleTrack> &subtitlelist) = 0;
+ };
+ SWIG_TEMPLATE_TYPEDEF(ePtr<iSubtitleOutput>, iSubtitleOutputPtr);
+ 
