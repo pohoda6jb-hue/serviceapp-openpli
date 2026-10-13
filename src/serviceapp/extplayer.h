@@ -298,7 +298,7 @@ public:
 		pCurrentVideo(NULL),
 		pCurrentSubtitle(NULL),
 		pErrorMessage(NULL),
-#ifdef SERVICEAPP_OPENPLI92
+#if defined(SERVICEAPP_OPENPLI92) || defined(SERVICEAPP_VTI15)
 		mMessageMain(eApp, 1),
 		mMessageThread(this, 1),
 #else

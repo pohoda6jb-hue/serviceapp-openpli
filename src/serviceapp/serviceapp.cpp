@@ -23,6 +23,12 @@
 
 #include <Python.h>
 
+#ifdef SERVICEAPP_VTI15
+using ServiceAppConfig = ePythonConfigQuery;
+#else
+using ServiceAppConfig = eConfigManager;
+#endif
+
 enum
 {
 	SUBSERVICES_INDEX_START = 1,
@@ -604,10 +610,10 @@ void eServiceApp::pushSubtitles()
 	int32_t next_timer = 0, decoder_ms, start_ms, end_ms, diff_start_ms, diff_end_ms;
 	subtitle_pages_map::const_iterator current;
 
-	int delay = eConfigManager::getConfigIntValue("config.subtitles.pango_subtitles_delay");
+	int delay = ServiceAppConfig::getConfigIntValue("config.subtitles.pango_subtitles_delay");
 	if (isExternalTrack(*m_selected_subtitle_track))
 	{
-		int subtitle_fps = eConfigManager::getConfigIntValue("config.subtitles.pango_subtitles_fps");
+		int subtitle_fps = ServiceAppConfig::getConfigIntValue("config.subtitles.pango_subtitles_fps");
 		if (subtitle_fps != m_prev_subtitle_fps)
 		{
 			m_prev_subtitle_fps = subtitle_fps;
@@ -1427,7 +1433,9 @@ int eServiceApp::getInfo(int w)
 	case sTagSerial:
 	case sTagEncoderVersion:
 	case sTagCRC:
+#ifndef SERVICEAPP_VTI15
 	case sBuffer:
+#endif
 		return resNA;
 	case sVideoType:
 	{

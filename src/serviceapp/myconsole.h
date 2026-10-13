@@ -38,6 +38,10 @@ class eConsoleContainer: public Object, public iObject
     void readyWrite(int what);
     void closePipes();
 public:
+#ifdef SERVICEAPP_VTI15
+    // The legacy iObject hides delete; make construction cleanup accessible.
+    static void operator delete(void *pointer) { ::operator delete(pointer); }
+#endif
     eConsoleContainer();
     ~eConsoleContainer();
     int setCWD( const char *path );

@@ -109,6 +109,8 @@ def audit(package):
         'eTimer::startLongTimer(int)': '_ZN6eTimer14startLongTimerEi',
         'eConnection::AddRef()': '_ZN11eConnection6AddRefEv',
         'eConnection::Release()': '_ZN11eConnection7ReleaseEv',
+        'ePythonConfigQuery::getConfigIntValue(key,default)':
+            '_ZN18ePythonConfigQuery17getConfigIntValueEPKci',
         'eServiceMP3::enableSubtitles(user,track)':
             '_ZN11eServiceMP315enableSubtitlesEP13iSubtitleUserRN15iSubtitleOutput13SubtitleTrackE',
         'eServiceMP3::disableSubtitles()': '_ZN11eServiceMP316disableSubtitlesEv',

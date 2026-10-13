@@ -18,6 +18,14 @@ make -C sigc++ slot.h signal.h bind.h bind_return.h object_slot.h \
   retype_return.h class_slot.h hide.h retype.h method_slot.h \
   > "$sdk/sigc-make.log" 2>&1
 cd "$sdk"
+curl -fL --retry 2 --max-time 60 \
+  https://mirror.metanet.ch/BLFS/conglomeration/uchardet/uchardet-0.0.6.tar.xz \
+  -o uchardet.tar.xz
+# Upstream release checksum also published in Stremio's source build manifest.
+printf '%s\n' '8351328cdfbcb2432e63938721dd781eb8c11ebc56e3a89d0f84576b96002c61  uchardet.tar.xz' | sha256sum -c -
+tar xJf uchardet.tar.xz
+mkdir -p "$sdk/uchar-include/uchardet"
+cp uchardet-0.0.6/src/uchardet.h "$sdk/uchar-include/uchardet/"
 git init -q vuplus
 git -C vuplus fetch --depth 1 https://github.com/OpenVuPlus/dvbapp.git \
   847b84273e9696223fd0f50d1957309cfee2caec
@@ -48,10 +56,12 @@ status=0
 for source in "$sdk/check.cpp" src/serviceapp/serviceapp.cpp \
   src/serviceapp/extplayer.cpp src/serviceapp/myconsole.cpp \
   src/serviceapp/scriptrun.cpp src/serviceapp/exteplayer3.cpp \
-  src/serviceapp/gstplayer.cpp src/serviceapp/common.cpp; do
+  src/serviceapp/gstplayer.cpp src/serviceapp/common.cpp \
+  src/serviceapp/wrappers.cpp src/serviceapp/m3u8.cpp \
+  src/serviceapp/subtitles/subtitles.cpp src/serviceapp/subtitles/subrip.cpp; do
   echo "Checking $source against public Vu+ / Python 2.7 / libsigc++ 1.2.5"
   if ! g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 \
-    -DNO_UCHARDET -include Python.h -I /usr/local/include/python2.7 \
+    -include Python.h -I /usr/local/include/python2.7 -I "$sdk/uchar-include" \
     -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include" \
     -I /usr/include/freetype2 \
     -I "$sdk/libsigc++-1.2.5" -I "$sdk/libsigc++-1.2.5/sigc++/config" \

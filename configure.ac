@@ -9,6 +9,12 @@ AM_PATH_PYTHON
 AX_PYTHON_DEVEL
 AC_LANG(C++)
 
+AC_ARG_ENABLE([vti15],
+    [AS_HELP_STRING([--enable-vti15], [select experimental VTi 15 legacy interfaces])],
+    [], [enable_vti15=no])
+AS_IF([test "x$enable_vti15" = xyes],
+    [CPPFLAGS="$CPPFLAGS -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0"])
+
 PKG_CHECK_MODULES(ENIGMA2, enigma2)
 PKG_CHECK_MODULES(UCHARDET, uchardet)
 PKG_CHECK_MODULES(OPENSSL, openssl)

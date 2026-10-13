@@ -244,6 +244,9 @@ class eServiceFactoryApp: public iServiceHandler
 	DECLARE_REF(eServiceFactoryApp);
 	ePtr<eStaticServiceAppInfo> m_service_info;
 public:
+#ifdef SERVICEAPP_VTI15
+	static void operator delete(void *pointer) { ::operator delete(pointer); }
+#endif
 	eServiceFactoryApp();
 	virtual ~eServiceFactoryApp();
 	enum { 
