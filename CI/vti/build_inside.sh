@@ -68,7 +68,11 @@ base=(main/exteplayer.c container/container.c container/container_ffmpeg.c
   external/ffmpeg/src/mpeg4audio.c external/flv2mpeg4/src/m4vencode.c
   external/flv2mpeg4/src/flvdecoder.c external/flv2mpeg4/src/dcprediction.c
   external/flv2mpeg4/src/flv2mpeg4.c output/linuxdvb_mipsel.c)
-writers=(writer aac ac3 mp3 pcm lpcm dts amr wma h265 h264 h263 mpeg2 mpeg4 divx3 vp wmv vc1)
+# The old .bb recipe still names removed wma.c/h263.c. In this pinned
+# revision WMA is in bcma.c and H263 in mpeg4.c; mjpeg.c supplies the
+# additional symbols referenced by AvailableWriter. Build every actual
+# MIPS writer, rather than copying that stale recipe list.
+writers=(writer aac ac3 mp3 pcm lpcm dts amr bcma h265 h264 mpeg2 mpeg4 divx3 vp wmv vc1 mjpeg)
 for writer in "${writers[@]}"; do base+=("output/writer/mipsel/$writer.c"); done
 gcc -O2 -mips32 -mabi=32 -mfp32 -mhard-float -D_FILE_OFFSET_BITS=64 \
   -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -DHAVE_FLV2MPEG4_CONVERTER \

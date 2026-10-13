@@ -30,6 +30,21 @@ jobs:
           git -C work/vti-exteplayer fetch --depth 1 https://github.com/oe-mirrors/exteplayer3.git e258b47863fae1d74dbd1d707c948ae4232fea64
           git -C work/vti-exteplayer checkout -q --detach FETCH_HEAD
           patch -p1 -d work/vti-exteplayer < CI/openpli/exteplayer3-live.patch
+          # Fail before the expensive target build if any listed source is absent.
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('CI/vti/build_inside.sh').read_text()
+          base = re.search(r'base=\((.*?)\)', text, re.S).group(1).split()
+          writers = re.search(r'writers=\((.*?)\)', text, re.S).group(1).split()
+          listed = base + ['output/writer/mipsel/' + name + '.c' for name in writers]
+          root = Path('work/vti-exteplayer')
+          missing = [name for name in listed if not (root / name).is_file()]
+          assert not missing, missing
+          actual = {p.name for p in (root / 'output/writer/mipsel').glob('*.c')}
+          assert actual == {name + '.c' for name in writers}, actual
+          print('All pinned MIPS player sources accounted for')
+          PY
       - name: Prepare archived GCC4.9 MIPS build system
         id: prepare-mips
         run: |
