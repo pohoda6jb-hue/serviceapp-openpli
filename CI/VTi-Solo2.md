@@ -4,6 +4,20 @@ This branch prepares Python 2.7 persistence and native option handling. It does
 not produce or claim a working VTi MIPS package yet. OpenPLi ARM binaries are
 not transferable to Solo2.
 
+## Receiver facts supplied 2026-10-13
+
+* `/etc/issue`: `vuplus 3.0.0` (this banner alone does not identify the VTi build).
+* `uname -m`: `mips`; accepted packages include `mips32el`, `vusolo2`, `mipsel`.
+* Python 2.7.9, `python-core` 2.7.9-r1-vuplus1.
+* glibc 2.21-r0, libgcc1 4.9.2-r0, libsigc-1.2-5 1.2.5-r2.
+* libavcodec57, libavformat57, libavutil55: VTi001.3.4.1-r14.
+* Enigma2, installed ServiceApp/player, libstdc++, OpenSSL and development
+  headers remain unconfirmed. The original grep expression contained embedded
+  newlines and did not reliably match all requested package names.
+
+The SF8008 player uses libavcodec58/libavformat58/libavutil56 and glibc >=2.33;
+that package cannot satisfy this receiver's confirmed ABI requirements.
+
 Required before a receiver package can be validated:
 
 * exact architecture priorities and installed Enigma2/Python/player versions;
