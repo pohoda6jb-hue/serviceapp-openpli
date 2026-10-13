@@ -40,6 +40,20 @@ sed -i 's/__GNUC__ == 4 )/__GNUC__ >= 4 )/' "$sdk/vuplus/lib/dvb/idvb.h"
 # VTi exports the newer subtitle methods (confirmed by the pinned binary),
 # while public Vu+ still declares the older eWidget/Python-list interface.
 patch -p1 -d "$sdk/vuplus" < CI/vti/vuplus-subtitle-interface.patch
+# GCC 4.9 checks constructor exception cleanup against the inherited delete.
+# Expose only that inline forwarding function in the build SDK; keep the
+# destructor protected and preserve all fields, virtual methods and layout.
+python - "$sdk/vuplus/lib/base/object.h" <<'PY'
+import io
+import sys
+path = sys.argv[1]
+old = 'protected:\n\tvoid operator delete(void *p) { ::operator delete(p); }\n'
+with io.open(path, encoding='utf-8') as source:
+    text = source.read()
+assert text.count(old) == 1
+with io.open(path, 'w', encoding='utf-8') as destination:
+    destination.write(text.replace(old, 'public:\n\tvoid operator delete(void *p) { ::operator delete(p); }\nprotected:\n'))
+PY
 if [ "${SERVICEAPP_PREPARE_ONLY:-0}" = 1 ]; then exit 0; fi
 cat > "$sdk/check.cpp" <<'EOF'
 #include "serviceapp.h"

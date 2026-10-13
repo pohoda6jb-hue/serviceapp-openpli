@@ -11,7 +11,7 @@ def inspect(path):
         elf = ELFFile(stream)
         if elf.elfclass != 32 or not elf.little_endian or elf.header.e_machine != 'EM_MIPS':
             raise ValueError('Not a 32-bit little-endian MIPS ELF: ' + str(path))
-        needed, soname, interp = [], None, None
+        needed, soname, interp, search_paths = [], None, None, []
         abi_section = elf.get_section_by_name('.MIPS.abiflags')
         fp_abi = abi_section.data()[7] if abi_section else None
         dynamic = elf.get_section_by_name('.dynamic')
@@ -20,6 +20,7 @@ def inspect(path):
                 kind = tag.entry.d_tag
                 if kind == 'DT_NEEDED': needed.append(tag.needed)
                 elif kind == 'DT_SONAME': soname = tag.soname
+                elif kind in ('DT_RPATH', 'DT_RUNPATH'): search_paths.append(kind)
         for segment in elf.iter_segments():
             if segment.header.p_type == 'PT_INTERP': interp = segment.get_interp_name()
         versions, defaults = {}, {}
@@ -50,7 +51,7 @@ def inspect(path):
                     if not hidden_version: defaults[symbol.name] = True
         return {'needed': needed, 'soname': soname, 'interp': interp,
                 'exports': exports, 'defaults': defaults, 'imports': imports,
-                'flags': elf.header.e_flags, 'fp_abi': fp_abi}
+                'flags': elf.header.e_flags, 'fp_abi': fp_abi, 'search_paths': search_paths}
 
 
 def timer_accesses(path, name):
@@ -114,6 +115,8 @@ def main():
     report['timer_reference_accesses'] = accesses
     for name in ('serviceapp.so', 'exteplayer3'):
         candidate = inspect(args.candidates / name)
+        if candidate['search_paths']:
+            raise ValueError('Candidate embeds build-system library paths: ' + name)
         if candidate['flags'] & 0xf0000000 != 0x50000000 or candidate['flags'] & 0xf000 != 0x1000:
             raise ValueError('Candidate requires a different MIPS ISA/O32 ABI: ' + name)
         if candidate['fp_abi'] != 1:

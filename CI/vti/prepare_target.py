@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import re
+import subprocess
 from pathlib import Path
 import tarfile
 from urllib.request import urlopen
@@ -93,9 +94,23 @@ def main():
         raise ValueError('Enigma reference changed')
     (root / 'enigma2').write_bytes(enigma_elf(data))
     for library in sorted(libs.iterdir()):
-        if '.so.' in library.name:
-            link = libs / (library.name.split('.so.', 1)[0] + '.so')
-            if not link.exists():
+        # Debian/Vu+ glibc files use names such as libpthread-2.21.so.
+        # Resolve both compiler and loader names from the ELF's actual SONAME.
+        output = subprocess.check_output(['readelf', '-d', str(library)], text=True)
+        match = re.search(r'\(SONAME\).*\[([^\]]+)\]', output)
+        if not match:
+            continue
+        soname = match.group(1)
+        if Path(soname).name != soname or '.so' not in soname:
+            raise ValueError('unsafe runtime SONAME: ' + soname)
+        for name in (soname, soname.partition('.so')[0] + '.so'):
+            link = libs / name
+            if link == library:
+                continue
+            if link.exists():
+                if link.resolve() != library.resolve():
+                    raise ValueError('ambiguous runtime SONAME: ' + name)
+            else:
                 link.symlink_to(library.name)
     (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 
