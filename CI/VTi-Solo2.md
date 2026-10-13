@@ -81,10 +81,23 @@ Matching vtable sizes alone do not certify method order, enum values, timers,
 signal layouts, or actual receiver playback.
 
 `CI/vti/check_vuplus_headers.sh` checks production native code on a Linux host
-with Python 2.7, libsigc++ 1.2.5 and these pinned public Vu+ headers. This syntax
+with Python 2.7, libsigc++ 1.2.5, uchardet 0.0.6 and these pinned public Vu+
+headers. The public subtitle declarations are updated from OpenPLi because
+the official VTi executable exports the newer `iSubtitleUser`/`SubtitleTrack`
+methods; the audit checks these exports too. No timer offsets or padding are
+invented to make this check pass. This syntax
 check is not a MIPS target link or an assertion that public Vu+ and closed VTi
 have identical object layouts. The MIPS build must explicitly set
-`-DSERVICEAPP_VTI15`; the default OpenPLi/OpenVision path is unchanged.
+`-DSERVICEAPP_VTI15` (or configure with `--enable-vti15`); the default
+OpenPLi/OpenVision path is unchanged apart from returning a defined unsupported
+result from the existing buffer-size stub.
+
+The VTi path also uses two-argument message-pump constructors, default integer
+packets for the older receive implementation, the exported
+`ePythonConfigQuery::getConfigIntValue` for subtitle settings, and no unavailable
+`sBuffer` info enum. Public deallocation forwarding for the console and service
+factory preserves normal global delete while allowing construction against the
+legacy protected `iObject::operator delete` declaration.
 
 Run the reference check:
 

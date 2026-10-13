@@ -54,6 +54,9 @@ class ResolveUrl: public Object, public eThread, public eMainloop
             stop,
             tStop,
         };
+#ifdef SERVICEAPP_VTI15
+        Message(): type(-1) {}
+#endif
         Message(int type)
             :type(type) {}
     };

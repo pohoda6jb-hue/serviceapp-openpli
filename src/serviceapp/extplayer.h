@@ -223,6 +223,10 @@ class PlayerBackend: public Object, public eThread, public eMainloop, public iPl
 			subtitleAvailable,
 			error,
 		};
+#ifdef SERVICEAPP_VTI15
+		// The legacy pump constructs a packet before reading its integer fields.
+		Message(): type(-1), dataInt(0) {}
+#endif
 		Message(int type)
 			:type(type), dataInt(0) {}
 		Message(int type, int dataInt)
