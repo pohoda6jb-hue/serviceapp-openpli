@@ -99,6 +99,44 @@ packets for the older receive implementation, the exported
 factory preserves normal global delete while allowing construction against the
 legacy protected `iObject::operator delete` declaration.
 
+The build SDK also exposes the inherited inline deallocation forwarder for
+GCC 4.9 constructor exception cleanup. This changes access control only;
+the destructor remains protected, with no added fields or virtual methods.
+The VTi EPG path uses the system clock (`time(NULL)`), as public Vu+ synchronizes
+that clock and does not provide OpenPLi's `nowTime()` method.
+
+## Native MIPS build and packaging gates
+
+`.github/workflows/vti-solo2-build.yml` runs the native MIPS GCC 4.9.2 compiler
+under QEMU in a disposable archived Debian Jessie root. Python 2.7.9 is checked
+there too. A reusable cache stores only this compiler root. Source code and
+the exact official VTi libraries are fetched and verified on every build.
+The VM has older glibc headers; candidates are linked with the official VTi
+library files and checked against their exported symbol versions.
+
+`prepare_target.py` obtains the actual codec dependency closure from the official
+feed. Linker and loader aliases come from ELF SONAMEs, including glibc libraries
+whose filenames differ from their loader names. FFmpeg 3.4.1 source supplies the
+headers for exteplayer3; FFmpeg libraries are neither rebuilt nor upgraded.
+
+Before packaging, `validate_target.py` checks ELF32 little-endian MIPS32 O32,
+hard-float FP32, receiver loader, runtime dependencies, strong symbol imports
+and their versions, Python 2 initializer, and absence of embedded build paths.
+A MIPS layout probe is compared with the timer's field accesses in the pinned
+official Enigma executable. These are selected static compatibility checks,
+not a substitute for receiver testing or proof of every closed VTi interface.
+
+Only successful candidates produce test IPKs and a ZIP with instructions,
+checksums, compiler details and the static audit. The ServiceApp package requires
+the exact confirmed Enigma version. It does not restart Enigma automatically.
+Live recovery remains opt-in and handles player process exit; a player that stays
+running while frozen is not covered by this mechanism.
+
+For IPTV service type 4097, the main ServiceApp settings must select ServiceApp
+and exteplayer3, followed by a GUI restart. Type 5002 selects exteplayer3 directly.
+Saving a per-stream profile alone does not switch a native Enigma service to
+ServiceApp. HLS Explorer remains optional; use native player HLS for the tests.
+
 Run the reference check:
 
 ```sh
