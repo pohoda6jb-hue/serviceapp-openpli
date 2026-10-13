@@ -126,6 +126,16 @@ A MIPS layout probe is compared with the timer's field accesses in the pinned
 official Enigma executable. These are selected static compatibility checks,
 not a substitute for receiver testing or proof of every closed VTi interface.
 
+The official VTi Python library exports the UCS2 Unicode API; Debian's
+same-version 2.7.9 headers default to UCS4. The build-only
+`python-ucs2-config.h` configures both the API names and the real `Py_UNICODE`
+type as two-byte unsigned short, following CPython 2.7.9's `unicodeobject.h`.
+It does not alias missing symbols, replace runtime functions, or change Python
+on the receiver. The MIPS probe asserts the type size and the import check
+rejects a different reference Python Unicode ABI. Actual VTi development
+headers are absent from the inspected feed; this is a documented configuration
+adaptation of the compiler root's same-version headers.
+
 Only successful candidates produce test IPKs and a ZIP with instructions,
 checksums, compiler details and the static audit. The ServiceApp package requires
 the exact confirmed Enigma version. It does not restart Enigma automatically.

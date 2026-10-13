@@ -101,6 +101,10 @@ def main():
         providers.append(provider)
         if provider['soname']: sonames[provider['soname']] = provider
     reference_interp = providers[0]['interp']
+    python = sonames['libpython2.7.so.1.0']
+    if ('PyUnicodeUCS2_AsUTF8String' not in python['defaults'] or
+            'PyUnicodeUCS4_AsUTF8String' in python['defaults']):
+        raise ValueError('Reference Python does not match the verified VTi UCS2 ABI')
     report = {'scope': 'Static MIPS ABI/import checks; hardware playback untested', 'files': {}}
     layout = json.loads((args.candidates / 'layout.json').read_text())
     if layout['pointer'] != 4: raise ValueError('Layout probe is not 32-bit MIPS')

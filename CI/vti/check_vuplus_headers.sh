@@ -76,7 +76,8 @@ for source in "$sdk/check.cpp" src/serviceapp/serviceapp.cpp \
   src/serviceapp/subtitles/subtitles.cpp src/serviceapp/subtitles/subrip.cpp; do
   echo "Checking $source against public Vu+ / Python 2.7 / libsigc++ 1.2.5"
   if ! g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -DHAVE_EPG -D_GLIBCXX_USE_CXX11_ABI=0 \
-    -include Python.h -I /usr/local/include/python2.7 -I "$sdk/uchar-include" \
+    -include CI/vti/python-ucs2-config.h -include Python.h \
+    -I /usr/local/include/python2.7 -I "$sdk/uchar-include" \
     -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include" \
     -I /usr/include/freetype2 \
     -I "$sdk/libsigc++-1.2.5" -I "$sdk/libsigc++-1.2.5/sigc++/config" \

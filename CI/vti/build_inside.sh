@@ -15,7 +15,8 @@ make -C sigc++ slot.h signal.h bind.h bind_return.h object_slot.h \
 cd /src
 flags=(-std=gnu++11 -O2 -g -fPIC -fno-rtti -fno-strict-aliasing -mips32 -mabi=32 -mfp32 -mhard-float
   -DSERVICEAPP_VTI15 -DHAVE_EPG -D_GLIBCXX_USE_CXX11_ABI=0 -D_FILE_OFFSET_BITS=32
-  -include Python.h -I /usr/include/python2.7 -I "$sdk/uchar-include"
+  -include /src/CI/vti/python-ucs2-config.h -include Python.h
+  -I /usr/include/python2.7 -I "$sdk/uchar-include"
   -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include"
   -I /usr/include/freetype2 -I "$sdk/libsigc++-1.2.5"
   -I "$sdk/libsigc++-1.2.5/sigc++/config" -I src/serviceapp)
@@ -48,6 +49,7 @@ cat > "$out/layout.cpp" <<'EOF'
 #include <lib/base/ebase.h>
 #undef private
 int main() {
+  static_assert(sizeof(Py_UNICODE) == 2, "VTi Python uses UCS2");
   printf("{\"pointer\":%zu,\"timer_size\":%zu,\"context\":%zu,\"interval\":%zu,\"active\":%zu,\"single\":%zu}\n",
     sizeof(void*), sizeof(eTimer), offsetof(eTimer, context), offsetof(eTimer, interval),
     offsetof(eTimer, bActive), offsetof(eTimer, bSingleShot));
