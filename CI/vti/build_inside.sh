@@ -74,7 +74,7 @@ base=(main/exteplayer.c container/container.c container/container_ffmpeg.c
 # MIPS writer, rather than copying that stale recipe list.
 writers=(writer aac ac3 mp3 pcm lpcm dts amr bcma h265 h264 mpeg2 mpeg4 divx3 vp wmv vc1 mjpeg)
 for writer in "${writers[@]}"; do base+=("output/writer/mipsel/$writer.c"); done
-gcc -O2 -mips32 -mabi=32 -mfp32 -mhard-float -D_FILE_OFFSET_BITS=64 \
+gcc -std=gnu99 -O2 -mips32 -mabi=32 -mfp32 -mhard-float -D_FILE_OFFSET_BITS=64 \
   -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -DHAVE_FLV2MPEG4_CONVERTER \
   -I include -I external -I external/flv2mpeg4 -I /src/work/ffmpeg-3.4.1 \
   "${base[@]}" -L "$target" -lpthread -lavformat -lavcodec -lavutil -lswresample \
