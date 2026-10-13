@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 import tarfile
 from urllib.request import urlopen
@@ -40,10 +41,27 @@ def main():
         if 'Package' in fields:
             entries[fields['Package']] = fields
     manifest = []
-    for name, version in EXPECTED.items():
+    pending = list(EXPECTED)
+    fetched = set()
+    while pending:
+        name = pending.pop(0)
+        if name in fetched:
+            continue
+        fetched.add(name)
         entry = entries[name]
-        if entry['Version'] != version or entry['Architecture'] != 'mips32el':
+        version = entry['Version']
+        if (name in EXPECTED and version != EXPECTED[name]) or entry['Architecture'] != 'mips32el':
             raise ValueError('unexpected official reference package: ' + name)
+        # Linker inputs need the codec libraries' own dependencies too. GstPlayer
+        # is only an optional offline install package; do not pull all GST plugins.
+        if name != 'gstplayer':
+            for dependency in entry.get('Depends', '').split(','):
+                match = re.match(r'\s*([\w+.-]+)', dependency)
+                if match:
+                    dependency_name = match.group(1)
+                    if dependency_name not in entries:
+                        raise ValueError('missing runtime dependency: ' + dependency_name)
+                    pending.append(dependency_name)
         filename = entry['Filename']
         if Path(filename).name != filename:
             raise ValueError('unsafe feed filename')

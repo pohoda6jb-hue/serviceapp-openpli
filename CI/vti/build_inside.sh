@@ -13,8 +13,8 @@ cd "$sdk/libsigc++-1.2.5"
 make -C sigc++ slot.h signal.h bind.h bind_return.h object_slot.h \
   retype_return.h class_slot.h hide.h retype.h method_slot.h > "$out/sigc-mips-make.log" 2>&1
 cd /src
-flags=(-std=gnu++11 -O2 -g -fPIC -mips32 -mabi=32 -mfp32 -mhard-float
-  -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 -D_FILE_OFFSET_BITS=32
+flags=(-std=gnu++11 -O2 -g -fPIC -fno-rtti -fno-strict-aliasing -mips32 -mabi=32 -mfp32 -mhard-float
+  -DSERVICEAPP_VTI15 -DHAVE_EPG -D_GLIBCXX_USE_CXX11_ABI=0 -D_FILE_OFFSET_BITS=32
   -include Python.h -I /usr/include/python2.7 -I "$sdk/uchar-include"
   -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include"
   -I /usr/include/freetype2 -I "$sdk/libsigc++-1.2.5"
@@ -74,7 +74,7 @@ gcc -O2 -mips32 -mabi=32 -mfp32 -mhard-float -D_FILE_OFFSET_BITS=64 \
   -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -DHAVE_FLV2MPEG4_CONVERTER \
   -I include -I external -I external/flv2mpeg4 -I /src/work/ffmpeg-3.4.1 \
   "${base[@]}" -L "$target" -lpthread -lavformat -lavcodec -lavutil -lswresample \
-  -Wl,--hash-style=sysv -o "$out/exteplayer3"
+  -Wl,-rpath-link,"$target" -Wl,--hash-style=sysv -o "$out/exteplayer3"
 cd /src
 python2.7 -m compileall -q src/plugin
 python2.7 test/check_python2_streamsettings.py

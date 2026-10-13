@@ -14,6 +14,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - uses: actions/cache/restore@v4
+        id: mips-cache
+        with:
+          path: work/vti-mips-base.tar
+          key: vti-jessie-mips-gcc49-v2-f5b6409b
       - name: Prepare public headers and exact VTi runtime libraries
         run: |
           SERVICEAPP_PREPARE_ONLY=1 sh CI/vti/check_vuplus_headers.sh
@@ -26,6 +31,7 @@ jobs:
           git -C work/vti-exteplayer checkout -q --detach FETCH_HEAD
           patch -p1 -d work/vti-exteplayer < CI/openpli/exteplayer3-live.patch
       - name: Prepare archived GCC4.9 MIPS build system
+        id: prepare-mips
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y debootstrap qemu-user-static binfmt-support
@@ -33,15 +39,30 @@ jobs:
           echo 'f5b6409b287484bb612f6542a1ebd8cf046dcb0fdb4dcd8d677493d9aaf7d348  work/jessie-Release' | sha256sum -c -
           # Historical signing keys have expired; authenticate the archive by
           # this pinned Release hash and debootstrap's package/index checksums.
-          sudo debootstrap --arch=mipsel --foreign --variant=minbase --no-check-gpg \
-            --include=g++,make,m4,python2.7-dev,libssl-dev,libfreetype6-dev \
-            jessie work/mips-root https://archive.debian.org/debian
+          if [ -f work/vti-mips-base.tar ]; then
+            sudo mkdir -p work/mips-root
+            sudo tar -xf work/vti-mips-base.tar -C work/mips-root
+          else
+            sudo debootstrap --arch=mipsel --foreign --variant=minbase --no-check-gpg \
+              --include=g++,make,m4,python2.7-dev,libssl-dev,libfreetype6-dev,libpng12-dev \
+              jessie work/mips-root https://archive.debian.org/debian
+          fi
           sudo cp /usr/bin/qemu-mipsel-static work/mips-root/usr/bin/
           sudo update-binfmts --enable qemu-mipsel
-          sudo chroot work/mips-root /debootstrap/debootstrap --second-stage
+          if [ ! -f work/vti-mips-base.tar ]; then
+            sudo chroot work/mips-root /debootstrap/debootstrap --second-stage
+            sudo tar -C work/mips-root -cf work/vti-mips-base.tar .
+            sudo chown "$(id -u):$(id -g)" work/vti-mips-base.tar
+          fi
           sudo mkdir -p work/mips-root/src
           tar --exclude=.git --exclude=work/mips-root -cf - . | sudo tar -xf - -C work/mips-root/src
+      - uses: actions/cache/save@v4
+        if: steps.mips-cache.outputs.cache-hit != 'true'
+        with:
+          path: work/vti-mips-base.tar
+          key: vti-jessie-mips-gcc49-v2-f5b6409b
       - name: Compile ServiceApp and player with native MIPS GCC4.9
+        id: build
         run: sudo chroot work/mips-root /bin/bash /src/CI/vti/build_inside.sh
       - name: Collect candidate binaries and diagnostics
         if: always()
@@ -50,6 +71,12 @@ jobs:
           sudo cp -r work/mips-root/src/work/vti-build/. work/vti-result/ 2>/dev/null || true
           sudo chown -R "$(id -u):$(id -g)" work/vti-result
           find work/vti-result -maxdepth 1 -type f -name '*.o' -delete
+      - name: Verify imports and selected timer fields against official VTi
+        if: steps.build.outcome == 'success'
+        run: |
+          python3 -m pip install pyelftools==0.32
+          python3 CI/vti/validate_target.py work/vti-target work/vti-result
+          python3 CI/vti/package_candidates.py work/vti-result work/vti-package --commit "$GITHUB_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,3 +85,8 @@ jobs:
             work/vti-result/
             work/vti-target/manifest.json
             work/mips-root/debootstrap/debootstrap.log
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: vti-solo2-test-packages
+          path: work/vti-package/
