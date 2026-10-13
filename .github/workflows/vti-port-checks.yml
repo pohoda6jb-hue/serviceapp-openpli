@@ -17,7 +17,7 @@ jobs:
         if: always()
         with:
           name: vti-public-header-check-log
-          path: work/vti-headers/sigc-configure.log
+          path: work/vti-headers/sigc-*.log
   reference-abi:
     runs-on: ubuntu-22.04
     steps:

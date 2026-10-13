@@ -17,7 +17,8 @@ def read(name):
 
 
 def section(text, start, end):
-    return text[text.index(start):text.index(end)]
+    position = text.index(start)
+    return text[position:text.index(end, position)]
 
 
 ext, gst, service = (read(name) for name in ('exteplayer3.cpp', 'gstplayer.cpp', 'serviceapp.cpp'))
