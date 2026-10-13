@@ -54,7 +54,7 @@ def main():
     ipk(out / 'exteplayer3_69+gitr136+e258b47-r0.vti1_mips32el.ipk',
         'Package: exteplayer3\nVersion: 69+gitr136+e258b47-r0.vti1\n'
         'Description: Legacy exteplayer3 with read-error events and explicit FFmpeg option preservation\n'
-        'Depends: libc6 (>= 2.21), libgcc1, libavcodec57, libavformat57, libavutil55, libswresample2\n' + common,
+        'Depends: libc6 (>= 2.21), libgcc1, libavcodec57, libavformat57, libavutil55, libswresample2, libswscale4\n' + common,
         [('usr/bin/exteplayer3', (args.binaries / 'exteplayer3').read_bytes(), 0o755)])
     readme = '''TESTOVACI BALICEK: VU+ Solo2, VTi 15.0.04, Python 2.7, MIPS32EL.
 Neinstalovat do ARM boxu ani OpenPLi. Přehrávání na skutečné Solo2 zatím není ověřeno.

@@ -18,6 +18,7 @@ EXPECTED = {
     'uchardet': '0.0.6-r0', 'gstplayer': '0.1-r06',
     'libavcodec57': 'VTi001.3.4.1-r14', 'libavformat57': 'VTi001.3.4.1-r14',
     'libavutil55': 'VTi001.3.4.1-r14', 'libswresample2': 'VTi001.3.4.1-r14',
+    'libswscale4': 'VTi001.3.4.1-r14',
 }
 
 

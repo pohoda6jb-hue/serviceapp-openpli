@@ -64,7 +64,8 @@ cd /src/work/ffmpeg-3.4.1
 cd /src/work/vti-exteplayer
 base=(main/exteplayer.c container/container.c container/container_ffmpeg.c
   manager/manager.c manager/audio.c manager/video.c manager/subtitle.c
-  output/output_subtitle.c output/output.c output/writer/common/pes.c
+  output/output_subtitle.c output/graphic_subtitle.c external/plugins/src/png.c
+  output/output.c output/writer/common/pes.c
   output/writer/common/misc.c output/writer/common/writer.c output/linuxdvb_buffering.c
   playback/playback.c external/ffmpeg/src/bitstream.c external/ffmpeg/src/latmenc.c
   external/ffmpeg/src/mpeg4audio.c external/flv2mpeg4/src/m4vencode.c
@@ -76,10 +77,16 @@ base=(main/exteplayer.c container/container.c container/container_ffmpeg.c
 # MIPS writer, rather than copying that stale recipe list.
 writers=(writer aac ac3 mp3 pcm lpcm dts amr bcma h265 h264 mpeg2 mpeg4 divx3 vp wmv vc1 mjpeg)
 for writer in "${writers[@]}"; do base+=("output/writer/mipsel/$writer.c"); done
+# Direct receiver libc ELF inputs do not include the compiler's normal linker
+# script. Supply the real archived compiler-root startup support archive too.
+# Its imports remain subject to the exact VTi symbol/version check.
+libc_startup=$(gcc -print-file-name=libc_nonshared.a)
+test -f "$libc_startup"
 gcc -std=gnu99 -O2 -mips32 -mabi=32 -mfp32 -mhard-float -D_FILE_OFFSET_BITS=64 \
   -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -DHAVE_FLV2MPEG4_CONVERTER \
   -I include -I external -I external/flv2mpeg4 -I /src/work/ffmpeg-3.4.1 \
   "${base[@]}" -L "$target" -lpthread -lavformat -lavcodec -lavutil -lswresample \
+  -lswscale -ldl "$libc_startup" \
   -Wl,-rpath-link,"$target" -Wl,--hash-style=sysv -o "$out/exteplayer3"
 cd /src
 python2.7 -m compileall -q src/plugin
