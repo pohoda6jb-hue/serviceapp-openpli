@@ -1,0 +1,60 @@
+name: VTi 15 Solo2 MIPS build
+on:
+  push:
+    branches: [feature/vti-solo2-port]
+    paths: ['CI/vti/**', '.github/workflows/vti-solo2-build.yml', 'src/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mips-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare public headers and exact VTi runtime libraries
+        run: |
+          SERVICEAPP_PREPARE_ONLY=1 sh CI/vti/check_vuplus_headers.sh
+          python3 CI/vti/prepare_target.py work/vti-target
+          curl -fL --retry 2 --max-time 120 https://ffmpeg.org/releases/ffmpeg-3.4.1.tar.xz -o work/ffmpeg.tar.xz
+          echo '5a77278a63741efa74e26bf197b9bb09ac6381b9757391b922407210f0f991c0  work/ffmpeg.tar.xz' | sha256sum -c -
+          tar xJf work/ffmpeg.tar.xz -C work
+          git init -q work/vti-exteplayer
+          git -C work/vti-exteplayer fetch --depth 1 https://github.com/oe-mirrors/exteplayer3.git e258b47863fae1d74dbd1d707c948ae4232fea64
+          git -C work/vti-exteplayer checkout -q --detach FETCH_HEAD
+          patch -p1 -d work/vti-exteplayer < CI/openpli/exteplayer3-live.patch
+      - name: Prepare archived GCC4.9 MIPS build system
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y debootstrap qemu-user-static binfmt-support
+          curl -fL https://archive.debian.org/debian/dists/jessie/Release -o work/jessie-Release
+          echo 'f5b6409b287484bb612f6542a1ebd8cf046dcb0fdb4dcd8d677493d9aaf7d348  work/jessie-Release' | sha256sum -c -
+          # Historical signing keys have expired; authenticate the archive by
+          # this pinned Release hash and debootstrap's package/index checksums.
+          sudo debootstrap --arch=mipsel --foreign --variant=minbase --no-check-gpg \
+            --include=g++,make,m4,python2.7-dev,libssl-dev,libfreetype6-dev \
+            jessie work/mips-root https://archive.debian.org/debian
+          sudo cp /usr/bin/qemu-mipsel-static work/mips-root/usr/bin/
+          sudo update-binfmts --enable qemu-mipsel
+          sudo chroot work/mips-root /debootstrap/debootstrap --second-stage
+          sudo mkdir -p work/mips-root/src
+          tar --exclude=.git --exclude=work/mips-root -cf - . | sudo tar -xf - -C work/mips-root/src
+      - name: Compile ServiceApp and player with native MIPS GCC4.9
+        run: sudo chroot work/mips-root /bin/bash /src/CI/vti/build_inside.sh
+      - name: Collect candidate binaries and diagnostics
+        if: always()
+        run: |
+          mkdir -p work/vti-result
+          sudo cp -r work/mips-root/src/work/vti-build/. work/vti-result/ 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" work/vti-result
+          find work/vti-result -maxdepth 1 -type f -name '*.o' -delete
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vti-solo2-candidate-diagnostics
+          path: |
+            work/vti-result/
+            work/vti-target/manifest.json
+            work/mips-root/debootstrap/debootstrap.log

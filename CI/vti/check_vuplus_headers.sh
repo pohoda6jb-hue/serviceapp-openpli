@@ -40,6 +40,7 @@ sed -i 's/__GNUC__ == 4 )/__GNUC__ >= 4 )/' "$sdk/vuplus/lib/dvb/idvb.h"
 # VTi exports the newer subtitle methods (confirmed by the pinned binary),
 # while public Vu+ still declares the older eWidget/Python-list interface.
 patch -p1 -d "$sdk/vuplus" < CI/vti/vuplus-subtitle-interface.patch
+if [ "${SERVICEAPP_PREPARE_ONLY:-0}" = 1 ]; then exit 0; fi
 cat > "$sdk/check.cpp" <<'EOF'
 #include "serviceapp.h"
 #include <type_traits>
