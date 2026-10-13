@@ -5,6 +5,19 @@ on:
 permissions:
   contents: read
 jobs:
+  reference-abi:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Inspect pinned official VTi Solo2 reference without executing it
+        run: python CI/vti/audit_reference.py --output work/vti-reference-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vti-solo2-reference-audit
+          path: work/vti-reference-audit.json
   python-compatibility:
     runs-on: ubuntu-22.04
     steps:
