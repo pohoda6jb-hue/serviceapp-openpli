@@ -1,8 +1,22 @@
-# VTi 15.0.04 / VU+ Solo2 port preparation
+# VTi 15.0.04 / VU+ Solo2 experimental port
 
-This branch prepares Python 2.7 persistence and native option handling. It does
-not produce or claim a working VTi MIPS package yet. OpenPLi ARM binaries are
-not transferable to Solo2.
+This branch produces experimental MIPS test packages with Python 2.7 persistence
+and native option handling. The build and selected static ABI checks pass;
+receiver playback remains untested. OpenPLi ARM binaries are not transferable
+to Solo2.
+
+Successful target build, source revision
+`8058a0752c0e155f4d748110201213084d28eced`:
+https://github.com/pohoda6jb-hue/serviceapp-openpli/actions/runs/38461744227
+
+Test package artifact:
+https://github.com/pohoda6jb-hue/serviceapp-openpli/actions/runs/38461744227/artifacts/11847790242
+
+GCC 4.9.2 and Python 2.7.9 compiled both native components. The static audit
+resolved all 275 strong ServiceApp imports and 158 player imports against the
+official VTi reference, verified MIPS32 O32 hard-float FP32, the Python UCS2
+configuration and the selected timer fields. The downloaded bundle's checksums,
+IPK controls, install paths and native MIPS payloads were also checked.
 
 ## Receiver facts supplied 2026-10-13
 
