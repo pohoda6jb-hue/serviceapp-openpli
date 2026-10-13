@@ -22,6 +22,10 @@ git init -q vuplus
 git -C vuplus fetch --depth 1 https://github.com/OpenVuPlus/dvbapp.git \
   847b84273e9696223fd0f50d1957309cfee2caec
 git -C vuplus checkout -q --detach FETCH_HEAD
+git init -q dvbsi
+git -C dvbsi fetch --depth 1 https://github.com/jack2015/libdvbsi.git \
+  ff57e585c47fd62b484d0a8f96fe4f020f5840e3
+git -C dvbsi checkout -q --detach FETCH_HEAD
 cd "$root"
 # VTi exports the newer subtitle methods (confirmed by the pinned binary),
 # while public Vu+ still declares the older eWidget/Python-list interface.
@@ -45,7 +49,8 @@ for source in "$sdk/check.cpp" src/serviceapp/serviceapp.cpp \
   echo "Checking $source against public Vu+ / Python 2.7 / libsigc++ 1.2.5"
   g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 \
     -DNO_UCHARDET -include Python.h -I /usr/local/include/python2.7 \
-    -I "$sdk/vuplus" -I "$sdk/vuplus/include" \
+    -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include" \
+    -I /usr/include/freetype2 \
     -I "$sdk/libsigc++-1.2.5" -I "$sdk/libsigc++-1.2.5/sigc++/config" \
     -I src/serviceapp "$source"
 done

@@ -1,5 +1,12 @@
 --- a/lib/service/iservice.h
 +++ b/lib/service/iservice.h
+@@ -7,5 +7,6 @@
+ #include <string>
+ #include <connection.h>
+ #include <list>
++#include <vector>
+ 
+ class eServiceEvent;
 @@ -638,14 +638,44 @@
  class eWidget;
  class PyList;
