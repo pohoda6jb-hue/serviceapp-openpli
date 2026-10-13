@@ -18,6 +18,15 @@
 #include "scriptrun.h"
 #include "m3u8.h"
 
+#ifdef SERVICEAPP_VTI15
+// Public Vu+ interface baseline, checked against the VTi 15 Solo2 reference.
+// A different event numbering must not silently turn EOF into another event.
+static_assert(iPlayableService::evEOF == 7, "VTi 15 requires evEOF index 7");
+#if SIGCXX_MAJOR_VERSION >= 2
+#error VTi 15 requires the libsigc++ 1.2 interface
+#endif
+#endif
+
 struct eServiceAppOptions
 {
 	PlaybackProfileSettings playback;
@@ -137,7 +146,7 @@ public:
 #endif
 	RESULT start();
 	RESULT stop();
-#if OPENVISION_ISERVICE_VERSION > 1 || defined(SERVICEAPP_OPENPLI92)
+#if !defined(SERVICEAPP_VTI15) && (OPENVISION_ISERVICE_VERSION > 1 || defined(SERVICEAPP_OPENPLI92))
 	RESULT setTarget(int target, bool noaudio=false){return -1;}
 #else
 	RESULT setTarget(int target){return -1;}
@@ -150,7 +159,9 @@ public:
 	RESULT subServices(ePtr<iSubserviceList> &ptr){ ptr=this; return 0;};
 	RESULT frontendInfo(ePtr<iFrontendInformation> &ptr){ ptr=0; return -1;};
 	RESULT timeshift(ePtr<iTimeshiftService> &ptr){ ptr=0; return -1;};
+#ifndef SERVICEAPP_VTI15
 	RESULT tap(ePtr<iTapService> &ptr) { ptr = nullptr; return -1; };
+#endif
 	RESULT cueSheet(ePtr<iCueSheet> &ptr){ ptr=0; return -1;};
 	RESULT subtitle(ePtr<iSubtitleOutput> &ptr){ ptr=this; return 0;};
 	RESULT audioDelay(ePtr<iAudioDelay> &ptr){ ptr=0; return -1;};
@@ -175,8 +186,13 @@ public:
 	RESULT isCurrentlySeekable();
 
 	// iStreamedService
+#ifdef SERVICEAPP_VTI15
+	// VTi uses a Python object here, unlike the newer OpenVision interface.
+	PyObject *getBufferCharge(){ return 0; };
+#else
 	ePtr<iStreamBufferInfo> getBufferCharge(){ return 0; };
-	int setBufferSize(int size){ (void)size; }
+#endif
+	int setBufferSize(int size){ (void)size; return -1; }
 
 	// iAudioTrackSelection
 	int getNumberOfTracks();

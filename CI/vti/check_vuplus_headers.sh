@@ -1,0 +1,43 @@
+#!/bin/sh
+# Native-host syntax check of production code against pinned public Vu+ headers.
+# This is deliberately separate from a target MIPS link/receiver test.
+set -eu
+root=$(pwd)
+sdk="$root/work/vti-headers"
+mkdir -p "$sdk"
+cd "$sdk"
+curl -fL --retry 2 --max-time 60 \
+  https://download.gnome.org/sources/libsigc++/1.2/libsigc++-1.2.5.tar.gz \
+  -o libsigc.tar.gz
+printf '%s\n' 'dcd6d3ea9a2c185b5286f80eefe9ac1402036b8fa21cfc742442d99579bd2b3e  libsigc.tar.gz' | sha256sum -c -
+tar xzf libsigc.tar.gz
+cd libsigc++-1.2.5
+./configure --disable-dependency-tracking > "$sdk/sigc-configure.log" 2>&1
+cd "$sdk"
+git init -q vuplus
+git -C vuplus fetch --depth 1 https://github.com/OpenVuPlus/dvbapp.git \
+  847b84273e9696223fd0f50d1957309cfee2caec
+git -C vuplus checkout -q --detach FETCH_HEAD
+cd "$root"
+cat > "$sdk/check.cpp" <<'EOF'
+#include "serviceapp.h"
+#include <type_traits>
+static_assert(!std::is_abstract<eServiceApp>::value,
+              "ServiceApp must implement every public Vu+ service method");
+static_assert(std::is_same<decltype(&iPlayableService::setTarget),
+                          RESULT (iPlayableService::*)(int)>::value,
+              "Unexpected Vu+ setTarget prototype");
+static_assert(std::is_same<decltype(&iStreamedService::getBufferCharge),
+                          PyObject* (iStreamedService::*)()>::value,
+              "Unexpected Vu+ streamed-buffer prototype");
+EOF
+for source in "$sdk/check.cpp" src/serviceapp/serviceapp.cpp \
+  src/serviceapp/extplayer.cpp src/serviceapp/myconsole.cpp \
+  src/serviceapp/scriptrun.cpp src/serviceapp/exteplayer3.cpp \
+  src/serviceapp/gstplayer.cpp src/serviceapp/common.cpp; do
+  echo "Checking $source against public Vu+ / Python 2.7 / libsigc++ 1.2.5"
+  g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 \
+    -DNO_UCHARDET -include Python.h -I /usr/local/include/python2.7 \
+    -I "$sdk/vuplus" -I "$sdk/vuplus/include" \
+    -I "$sdk/libsigc++-1.2.5" -I src/serviceapp "$source"
+done

@@ -5,6 +5,19 @@ on:
 permissions:
   contents: read
 jobs:
+  vuplus-interface-syntax:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check production native code against public Vu+ interface baseline
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work python:2.7.18-buster \
+            sh CI/vti/check_vuplus_headers.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vti-public-header-check-log
+          path: work/vti-headers/sigc-configure.log
   reference-abi:
     runs-on: ubuntu-22.04
     steps:

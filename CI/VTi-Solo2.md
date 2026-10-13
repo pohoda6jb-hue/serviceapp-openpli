@@ -11,9 +11,14 @@ not transferable to Solo2.
 * Python 2.7.9, `python-core` 2.7.9-r1-vuplus1.
 * glibc 2.21-r0, libgcc1 4.9.2-r0, libsigc-1.2-5 1.2.5-r2.
 * libavcodec57, libavformat57, libavutil55: VTi001.3.4.1-r14.
-* Enigma2, installed ServiceApp/player, libstdc++, OpenSSL and development
-  headers remain unconfirmed. The original grep expression contained embedded
-  newlines and did not reliably match all requested package names.
+* Follow-up package listing: Enigma2 `vti-15.0.04-20200921-r01r04`,
+  libstdc++6 4.9.2-r0, libssl1.0.0/libcrypto1.0.0 1.0.2a-r0.
+  This is the same Enigma2 package version as the downloaded reference.
+* No ServiceApp, exteplayer3 or uchardet entries appear in the supplied listing.
+  The `gstplayer` search word was split by a newline, so its absence cannot be
+  established from this filtered output. Do not infer gstplayer is installed.
+* Receiver checks explicitly confirm missing Enigma2/Python development headers
+  and `enigma2.pc`. A build environment must be assembled separately.
 
 The SF8008 player uses libavcodec58/libavformat58/libavutil56 and glibc >=2.33;
 that package cannot satisfy this receiver's confirmed ABI requirements.
@@ -67,12 +72,19 @@ Public Vu+ header reference:
 https://github.com/OpenVuPlus/dvbapp/tree/847b84273e9696223fd0f50d1957309cfee2caec
 
 Its `lib/service/iservice.h` uses `PyObject*` for streamed buffer charge,
-has no `iTapService`, and declares `evEOF` at index 7. Our OpenVision source
-currently refers to `iTapService` and `iStreamBufferInfo`; these require a
-separate VTi compatibility path before a full native build. The Vu+ source
+has no `iTapService`, and declares `evEOF` at index 7. An explicit
+`SERVICEAPP_VTI15` path selects these older interfaces, checks the EOF index,
+and retains the one-argument `setTarget` prototype. It also rejects libsigc++
+2/3 for this target. The Vu+ source
 snapshot is from 2019 and is not claimed to be the exact VTi source.
 Matching vtable sizes alone do not certify method order, enum values, timers,
 signal layouts, or actual receiver playback.
+
+`CI/vti/check_vuplus_headers.sh` checks production native code on a Linux host
+with Python 2.7, libsigc++ 1.2.5 and these pinned public Vu+ headers. This syntax
+check is not a MIPS target link or an assertion that public Vu+ and closed VTi
+have identical object layouts. The MIPS build must explicitly set
+`-DSERVICEAPP_VTI15`; the default OpenPLi/OpenVision path is unchanged.
 
 Run the reference check:
 
