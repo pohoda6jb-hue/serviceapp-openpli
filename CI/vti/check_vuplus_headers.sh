@@ -27,6 +27,8 @@ git -C dvbsi fetch --depth 1 https://github.com/jack2015/libdvbsi.git \
   ff57e585c47fd62b484d0a8f96fe4f020f5840e3
 git -C dvbsi checkout -q --detach FETCH_HEAD
 cd "$root"
+# Vu+ builds add GCC's extension include directory for its legacy <slist>.
+extensions=$(g++ -print-file-name=include)/../../../../include/c++/$(g++ -dumpversion)/ext
 # VTi exports the newer subtitle methods (confirmed by the pinned binary),
 # while public Vu+ still declares the older eWidget/Python-list interface.
 patch -p1 -d "$sdk/vuplus" < CI/vti/vuplus-subtitle-interface.patch
@@ -42,15 +44,19 @@ static_assert(std::is_same<decltype(&iStreamedService::getBufferCharge),
                           PyObject* (iStreamedService::*)()>::value,
               "Unexpected Vu+ streamed-buffer prototype");
 EOF
+status=0
 for source in "$sdk/check.cpp" src/serviceapp/serviceapp.cpp \
   src/serviceapp/extplayer.cpp src/serviceapp/myconsole.cpp \
   src/serviceapp/scriptrun.cpp src/serviceapp/exteplayer3.cpp \
   src/serviceapp/gstplayer.cpp src/serviceapp/common.cpp; do
   echo "Checking $source against public Vu+ / Python 2.7 / libsigc++ 1.2.5"
-  g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 \
+  if ! g++ -std=gnu++11 -fsyntax-only -DSERVICEAPP_VTI15 -D_GLIBCXX_USE_CXX11_ABI=0 \
     -DNO_UCHARDET -include Python.h -I /usr/local/include/python2.7 \
     -I "$sdk/vuplus" -I "$sdk/vuplus/include" -I "$sdk/dvbsi/include" \
-    -I /usr/include/freetype2 \
+    -I /usr/include/freetype2 -I "$extensions" \
     -I "$sdk/libsigc++-1.2.5" -I "$sdk/libsigc++-1.2.5/sigc++/config" \
-    -I src/serviceapp "$source"
+    -I src/serviceapp "$source"; then
+    status=1
+  fi
 done
+exit "$status"
