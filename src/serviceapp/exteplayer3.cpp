@@ -164,7 +164,12 @@ std::vector<std::string> ExtEplayer3::buildCommand()
 {
 	// TODO add all options
 	std::vector<std::string> args;
+#ifdef SERVICEAPP_BUNDLED_EXTEPLAYER3
+	// The Duo4K test build keeps the receiver's existing player available.
+	args.push_back("exteplayer3-serviceapp");
+#else
 	args.push_back("exteplayer3");
+#endif
 	size_t pos = mPath.find("&suburi=");
 	if (pos != std::string::npos)
 	{

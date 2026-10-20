@@ -15,6 +15,10 @@ artifact_dir="$source_dir/artifacts"
 cache_dir="$source_dir/.openpli-cache"
 oe_revision=73ca1f1613f9b84c1bfc08a003bb4a0c59a3e0c0
 recipe=enigma2-plugin-systemplugins-serviceapp
+player_recipe=exteplayer3
+if [ "$target_machine" = vuduo4k ]; then
+    player_recipe=exteplayer3-serviceapp
+fi
 mkdir -p "$artifact_dir/logs" "$artifact_dir/package"
 mkdir -p "$cache_dir/downloads" "$cache_dir/sstate"
 exec > >(tee "$artifact_dir/logs/build.log") 2>&1
@@ -75,10 +79,30 @@ CXXFLAGS_append = " -std=gnu++17"
 CPPFLAGS_append = " -DSERVICEAPP_OPENPLI92"
 EXTRA_OEMAKE_append = " -k"
 EOF
+if [ "$target_machine" = vuduo4k ]; then
+    cat >> "$append_dir/$recipe.bbappend" <<'EOF'
+CPPFLAGS_append += " -DSERVICEAPP_BUNDLED_EXTEPLAYER3"
+RDEPENDS_${PN}_append = " exteplayer3-serviceapp"
+RRECOMMENDS_${PN}_remove = "exteplayer3"
+EOF
+fi
 player_append_dir="$oe_dir/meta-local/recipes-multimedia/exteplayer3"
 mkdir -p "$player_append_dir/files"
 cp "$source_dir/CI/openpli/exteplayer3-live.patch" "$player_append_dir/files/"
-cat > "$player_append_dir/exteplayer3_git.bbappend" <<'EOF'
+if [ "$target_machine" = vuduo4k ]; then
+    # Reuse the pinned OpenPLi build recipe, with its own package and filename.
+    # This avoids replacing the user's separately installed exteplayer3 181.
+    player_metadata="$player_append_dir/exteplayer3-serviceapp_git.bb"
+    printf 'require %s/meta-openpli/recipes-multimedia/exteplayer3/exteplayer3_git.bb\n' "$oe_dir" > "$player_metadata"
+    cat >> "$player_metadata" <<'EOF'
+do_install_append() {
+    mv ${D}${bindir}/exteplayer3 ${D}${bindir}/exteplayer3-serviceapp
+}
+EOF
+else
+    player_metadata="$player_append_dir/exteplayer3_git.bbappend"
+fi
+cat >> "$player_metadata" <<'EOF'
 FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 SRCREV = "e258b47863fae1d74dbd1d707c948ae4232fea64"
 SRC_URI += " file://exteplayer3-live.patch"
@@ -102,11 +126,11 @@ if ! bitbake -e "$recipe" > "$artifact_dir/logs/recipe-environment.txt"; then
 fi
 # Compile independent translation units even if one fails, to collect all
 # remaining interface diagnostics in a single run. A failure still stops packaging.
-bitbake -c package_write_ipk exteplayer3
+bitbake -c package_write_ipk "$player_recipe"
 bitbake -c package_write_ipk "$recipe"
 
 find tmp/deploy -type f -path '*/ipk/*' -name "${recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
-find tmp/deploy -type f -path '*/ipk/*' -name "exteplayer3_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
+find tmp/deploy -type f -path '*/ipk/*' -name "${player_recipe}_*.ipk" -exec cp '{}' "$artifact_dir/package/" \;
 if ! compgen -G "$artifact_dir/package/*.ipk" > /dev/null; then
     echo 'No runtime IPK was produced.' >&2
     exit 1
@@ -119,4 +143,4 @@ fi
     printf '\nIncludes ServiceApp and patched exteplayer3. FFmpeg and image/kernel packages are not included.\n'
 } > "$artifact_dir/package/BUILD-INFO.txt"
 cd "$artifact_dir/package"
-sha256sum ./*.ipk > SHA256SUMS
+python3 "$source_dir/CI/openpli/package_bundle.py" "$target_machine" .

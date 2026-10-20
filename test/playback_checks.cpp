@@ -58,6 +58,11 @@ int main() {
     player.mPath = "https://host/stream with spaces.ts";
     player.mHeaders["User-Agent"] = "test agent";
     auto args = player.buildCommand();
+#ifdef SERVICEAPP_BUNDLED_EXTEPLAYER3
+    assert(args.front() == "exteplayer3-serviceapp");
+#else
+    assert(args.front() == "exteplayer3");
+#endif
     auto f = std::find(args.begin(), args.end(), "-f");
     assert(f != args.end() && *(f+1) == "rw_timeout=10000000" && *(f+2) == "-f" && *(f+3) == "reconnect_delay_max=4");
     auto o = std::find(args.begin(), args.end(), "-o");

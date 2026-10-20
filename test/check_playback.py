@@ -81,9 +81,11 @@ with (nullcontext(build_dir) if build_dir else tempfile.TemporaryDirectory(prefi
     path = Path(tmp)
     (path / 'check.cpp').write_text(code)
     exe = path / ('check.exe' if os.name == 'nt' else 'check')
-    subprocess.run([os.environ.get('CXX', 'g++'), '-std=c++11', '-Wall', '-Wextra',
-                    '-I' + str(SRC), str(path / 'check.cpp'), '-o', str(exe)], check=True)
-    subprocess.run([str(exe)], check=True)
+    for bundled in (False, True):
+        defines = ['-DSERVICEAPP_BUNDLED_EXTEPLAYER3'] if bundled else []
+        subprocess.run([os.environ.get('CXX', 'g++'), '-std=c++11', '-Wall', '-Wextra',
+                        *defines, '-I' + str(SRC), str(path / 'check.cpp'), '-o', str(exe)], check=True)
+        subprocess.run([str(exe)], check=True)
     # Compile the additive native Python API against real Python headers too.
     (path / 'bridge.cpp').write_text(policy_code + bridge)
     subprocess.run([os.environ.get('CXX', 'g++'), '-std=c++11', '-Wall', '-Wextra',
