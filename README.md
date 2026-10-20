@@ -121,8 +121,11 @@ it does not reset user-selected audio decoding or advanced FFmpeg options.
 
 ### Reconnect and timeout limits
 
-The SF8008 experiment now includes a patched exteplayer3 and opt-in per-stream
+The SF8008 experiment includes a patched exteplayer3 and opt-in per-stream
 process recovery. See [changes, limits and receiver tests](CI/openpli/TESTING.md).
+The [Duo4K build](CI/openpli/VUDUO4K.md) uses a separate
+`exteplayer3-serviceapp` executable from the audited player source series 69;
+it preserves an independently installed exteplayer3, including version 181.
 For the patched player, explicit HTTP options are preserved; the original
 upstream behavior described below still applies to unmodified feed players.
 
@@ -130,8 +133,10 @@ The inspected ExtEplayer3 copies `-f` options into an AVFormat dictionary, then
 sets HTTP(S) `timeout=20000000` and `reconnect=1` itself. Live TS additionally sets
 `seekable=0`, `reconnect_at_eof=1`, and `reconnect_streamed=1`. Therefore GUI knobs
 claiming to disable reconnect or freely replace that timeout would be misleading.
-This change uses the player's existing strategy and does not add restart loops,
-unlimited retry claims, or unsupported CLI flags. EOF reconnect is not enabled
+Profiles use the player's existing strategy. Explicit per-stream Live recovery
+additionally allows five process restarts, with bounded delays, after the player
+exits. It does not detect a frozen process that remains alive, and does not add
+unsupported CLI flags. EOF reconnect is not enabled
 for native HLS or VOD by the ServiceApp profiles.
 
 Advanced `reconnect_delay_max=4` or `rw_timeout=10000000` are examples of FFmpeg
@@ -158,7 +163,9 @@ Run portable checks with Python 3 and a C++11 compiler (`CXX` may override `g++`
 ```
 python3 -m compileall -q src/plugin test
 python3 test/test_plugin.py
+python3 test/test_streamsettings.py
 python3 test/check_playback.py
+python3 test/check_hls.py
 ```
 
 The C++ harness compiles unchanged production option parsing, argv generation,
@@ -167,8 +174,12 @@ tests URL classification, string values/spaces, progressive arguments, range
 validation, native HLS, independent buffers and service override precedence.
 It does not link the complete Enigma2 module or play media. A full build needs
 the receiver's OpenPLi SDK (Enigma2, Python development files, uchardet and OpenSSL).
-No OpenPLi 9.2 hardware or exact installed-player capability check was available
-for this patch; cross-build and receiver playback remain release gates.
+The complete OpenPLi 9.2 Duo4K cross-build and package audit passed for
+[`51788ca`](https://github.com/pohoda6jb-hue/serviceapp-openpli/actions/runs/39388122168).
+The audit checks the native ARM hard-float binaries, package architectures,
+companion executable path and ServiceApp dependency. The player and ServiceApp
+are packaged together with instructions and checksums. Playback on the receiver
+remains untested; a successful build does not establish runtime stability.
 
 On the target OpenPLi 9.2 receiver, compare Legacy and the new profiles using the
 same streams: TS/HLS zap time, sustained playback, short network interruption
