@@ -123,7 +123,8 @@ it does not reset user-selected audio decoding or advanced FFmpeg options.
 
 The SF8008 experiment includes a patched exteplayer3 and opt-in per-stream
 process recovery. See [changes, limits and receiver tests](CI/openpli/TESTING.md).
-The [Duo4K build](CI/openpli/VUDUO4K.md) uses a separate
+The [Duo4K build](CI/openpli/VUDUO4K.md) and
+[Zero 4K build](CI/openpli/VUZERO4K.md) use a separate
 `exteplayer3-serviceapp` executable from the audited player source series 69;
 it preserves an independently installed exteplayer3, including version 181.
 For the patched player, explicit HTTP options are preserved; the original

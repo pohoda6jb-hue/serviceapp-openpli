@@ -6,9 +6,9 @@ on:
       machine:
         description: Receiver to build (one receiver per run)
         required: true
-        default: vuduo4k
+        default: vuzero4k
         type: choice
-        options: [vuduo4k, sf8008]
+        options: [vuzero4k, vuduo4k, sf8008]
   push:
     branches: [feature/openpli-ts-hls-profiles]
     paths:
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        machine: ["${{ github.event.inputs.machine || 'vuduo4k' }}"]
+        machine: ["${{ github.event.inputs.machine || 'vuzero4k' }}"]
     runs-on: ubuntu-22.04
     timeout-minutes: 350
     container: ubuntu:20.04

@@ -63,13 +63,14 @@ def audit(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('machine', choices=['vuduo4k', 'sf8008'])
+    parser.add_argument('machine', choices=['vuzero4k', 'vuduo4k', 'sf8008'])
     parser.add_argument('directory', type=Path)
     args = parser.parse_args()
     folder = args.directory
     packages = [audit(p) for p in sorted(folder.glob('*.ipk'))]
     names = {p['control']['Package']: p for p in packages}
-    player = 'exteplayer3-serviceapp' if args.machine == 'vuduo4k' else 'exteplayer3'
+    companion = args.machine in ('vuzero4k', 'vuduo4k')
+    player = 'exteplayer3-serviceapp' if companion else 'exteplayer3'
     plugin_name = 'enigma2-plugin-systemplugins-serviceapp'
     if len(packages) != 2 or set(names) != {plugin_name, player}:
         raise ValueError('Bundle requires exactly the plugin and its player: ' + repr(set(names)))
@@ -80,14 +81,17 @@ def main():
     if args.machine == 'sf8008':
         allowed |= {'armv7vehf-vfp', 'armv7vehf-neon', 'armv7vehf-neon-vfpv4',
                     'cortexa15hf-vfp', 'cortexa15hf-neon', 'cortexa15hf-neon-vfpv4'}
+    elif args.machine == 'vuzero4k':
+        # The pinned meta-vuplus vuxxo4k.inc sets DEFAULTTUNE=armv7ahf-neon.
+        allowed = {'armv7ahf-neon', 'vuzero4k'}
     if names[player]['control']['Architecture'] not in allowed:
-        raise ValueError('Player architecture is absent from the supplied receiver architecture list')
+        raise ValueError('Player architecture is incompatible with the target receiver')
     if not any(name.endswith('/serviceapp.so') for name in names[plugin_name]['elf']):
         raise ValueError('Native ServiceApp module missing')
     binary = 'usr/bin/' + player
     if set(names[player].get('files', [])) != {binary} or binary not in names[player]['elf']:
         raise ValueError('Unexpected player install paths')
-    if args.machine == 'vuduo4k':
+    if companion:
         if not names[plugin_name].get('bundled_player'):
             raise ValueError('ServiceApp is not configured for its separate player')
         if player not in names[plugin_name]['control'].get('Depends', ''):
@@ -95,9 +99,9 @@ def main():
     (folder / 'PACKAGE-AUDIT.json').write_text(json.dumps(packages, indent=2) + '\n', encoding='utf-8')
     install = 'opkg install /tmp/' + names[player]['filename'] + ' /tmp/' + names[plugin_name]['filename']
     note = ('ServiceApp používá /usr/bin/exteplayer3-serviceapp. Původní exteplayer3 '
-            '(podle dodaného výpisu verze 181) zůstává pro ostatní pluginy. '
+            'zůstává pro ostatní pluginy. '
             'Samostatný přehrávač vychází z ověřeného zdroje OpenPLi řady 69, '
-            'nejde o upravený zdroj neověřené verze 181.\n') if args.machine == 'vuduo4k' else ''
+            'nejde o úpravu zdroje původního přehrávače v přijímači.\n') if companion else ''
     readme = ('TESTOVACÍ BALÍČEK: OpenPLi 9.2 / ' + args.machine + ' / ARM / Python 3.9.\n'
               'Přehrávání na tomto přijímači zatím není ověřené.\n' + note +
               '\nObsahuje ServiceApp a upravený exteplayer3. Neobsahuje nový FFmpeg ani image.\n'

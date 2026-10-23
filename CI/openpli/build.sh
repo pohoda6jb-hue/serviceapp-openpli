@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Ubuntu 20.04 matches this older OE release's host Python requirements.
 source_dir=$(cd "$(dirname "$0")/../.." && pwd)
-target_machine=${SERVICEAPP_MACHINE:-vuduo4k}
+target_machine=${SERVICEAPP_MACHINE:-vuzero4k}
 case "$target_machine" in
-    vuduo4k|sf8008) ;;
+    vuzero4k|vuduo4k|sf8008) ;;
     *) echo "Unsupported receiver: $target_machine" >&2; exit 1 ;;
 esac
 # base.bbclass excludes S and B from pseudo interception. Keep the OE tree
@@ -16,7 +16,7 @@ cache_dir="$source_dir/.openpli-cache"
 oe_revision=73ca1f1613f9b84c1bfc08a003bb4a0c59a3e0c0
 recipe=enigma2-plugin-systemplugins-serviceapp
 player_recipe=exteplayer3
-if [ "$target_machine" = vuduo4k ]; then
+if [ "$target_machine" = vuduo4k ] || [ "$target_machine" = vuzero4k ]; then
     player_recipe=exteplayer3-serviceapp
 fi
 mkdir -p "$artifact_dir/logs" "$artifact_dir/package"
@@ -79,7 +79,7 @@ CXXFLAGS_append = " -std=gnu++17"
 CPPFLAGS_append = " -DSERVICEAPP_OPENPLI92"
 EXTRA_OEMAKE_append = " -k"
 EOF
-if [ "$target_machine" = vuduo4k ]; then
+if [ "$player_recipe" = exteplayer3-serviceapp ]; then
     cat >> "$append_dir/$recipe.bbappend" <<'EOF'
 CPPFLAGS_append += " -DSERVICEAPP_BUNDLED_EXTEPLAYER3"
 RDEPENDS_${PN}_append = " exteplayer3-serviceapp"
@@ -89,9 +89,9 @@ fi
 player_append_dir="$oe_dir/meta-local/recipes-multimedia/exteplayer3"
 mkdir -p "$player_append_dir/files"
 cp "$source_dir/CI/openpli/exteplayer3-live.patch" "$player_append_dir/files/"
-if [ "$target_machine" = vuduo4k ]; then
+if [ "$player_recipe" = exteplayer3-serviceapp ]; then
     # Reuse the pinned OpenPLi build recipe, with its own package and filename.
-    # This avoids replacing the user's separately installed exteplayer3 181.
+    # This preserves any independently installed exteplayer3.
     player_metadata="$player_append_dir/exteplayer3-serviceapp_git.bb"
     printf 'require %s/meta-openpli/recipes-multimedia/exteplayer3/exteplayer3_git.bb\n' "$oe_dir" > "$player_metadata"
     cat >> "$player_metadata" <<'EOF'

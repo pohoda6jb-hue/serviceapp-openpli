@@ -18,8 +18,8 @@ patch. It is not presented as a modification of the user's unverified version
 181 source. No FFmpeg or image upgrade is included. Other builds retain the
 original `exteplayer3` executable name.
 
-Each CI run builds one selected receiver. Push builds select Duo4K; manual
-runs offer Duo4K or SF8008. The policy tests execute both executable-name
+Each CI run builds one selected receiver. Push builds currently select Zero4K;
+manual runs offer Zero4K, Duo4K or SF8008. The policy tests execute both executable-name
 variants before the target cross-build starts. The IPK audit checks the
 receiver/package architecture, native ARM ELF files, exact companion install
 path and its ServiceApp dependency, and verifies the companion name is present
