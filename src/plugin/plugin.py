@@ -6,7 +6,7 @@ import json
 from Components.ActionMap import ActionMap
 from Components.ConfigList import ConfigListScreen
 from Components.Console import Console
-from Components.config import config, ConfigSubsection, ConfigSelection, ConfigBoolean, getConfigListEntry, ConfigSubDict, ConfigInteger, ConfigNothing
+from Components.config import config, ConfigSubsection, ConfigSelection, ConfigBoolean, getConfigListEntry, ConfigSubDict, ConfigInteger, ConfigNothing, ConfigText
 from Components.Label import Label
 from Components.Sources.StaticText import StaticText
 from Plugins.Plugin import PluginDescriptor
@@ -52,6 +52,16 @@ for key in list(config_serviceapp.options.keys()):
     config_serviceapp.options[key].autoselect_stream = ConfigBoolean(default=True, descriptions={False: _("false"), True: _("true")})
     config_serviceapp.options[key].connection_speed_kb = ConfigInteger(9999999, limits=(0, 9999999))
     config_serviceapp.options[key].autoturnon_subtitles = ConfigBoolean(default=True, descriptions={False: _("false"), True: _("true")})
+    config_serviceapp.options[key].profile = ConfigSelection(default="legacy", choices=[
+        ("legacy", _("Legacy (existing settings)")), ("auto", _("Automatic (URL extension)")),
+        ("ts", _("Live TS")), ("hls", _("HLS")), ("vod", _("VOD"))])
+    config_serviceapp.options[key].profile_hls_explorer = ConfigBoolean(default=False)
+    config_serviceapp.options[key].ts_buffer_size = ConfigInteger(8192, (1024, 65536))
+    config_serviceapp.options[key].ts_buffer_duration = ConfigInteger(0, (0, 100))
+    config_serviceapp.options[key].hls_buffer_size = ConfigInteger(8192, (1024, 65536))
+    config_serviceapp.options[key].hls_buffer_duration = ConfigInteger(0, (0, 100))
+    config_serviceapp.options[key].show_advanced = ConfigBoolean(default=False)
+
 
 config_serviceapp.gstplayer = ConfigSubDict()
 config_serviceapp.gstplayer["servicemp3"] = ConfigSubsection()
@@ -61,6 +71,11 @@ for key in list(config_serviceapp.gstplayer.keys()):
     config_serviceapp.gstplayer[key].buffer_size = ConfigInteger(8192, (1024, 1024 * 64))
     config_serviceapp.gstplayer[key].buffer_duration = ConfigInteger(0, (0, 100))
     config_serviceapp.gstplayer[key].subtitle_enabled = ConfigBoolean(default=True, descriptions={False: _("false"), True: _("true")})
+    config_serviceapp.gstplayer[key].interface = ConfigSelection(default="flags", choices=[
+        ("flags", _("ServiceApp flags (legacy)")), ("openpli", _("OpenPLi positional interface"))])
+    config_serviceapp.gstplayer[key].ring_buffer_maxsize = ConfigInteger(0, (0, 1024))
+    config_serviceapp.gstplayer[key].download_buffer_path = ConfigText(default="", fixed_size=False)
+
 
 config_serviceapp.exteplayer3 = ConfigSubDict()
 config_serviceapp.exteplayer3["servicemp3"] = ConfigSubsection()
@@ -75,6 +90,15 @@ for key in list(config_serviceapp.exteplayer3.keys()):
     config_serviceapp.exteplayer3[key].lpcm_injecion = ConfigBoolean(default=False, descriptions={False: _("false"), True: _("true")})
     config_serviceapp.exteplayer3[key].downmix = ConfigBoolean(default=False, descriptions={False: _("false"), True: _("true")})
     config_serviceapp.exteplayer3[key].rtmp_protocol = ConfigSelection(default="auto", choices=["auto", "ffmpeg", "librtmp"])
+    # Empty advanced values leave player defaults untouched.
+    config_serviceapp.exteplayer3[key].live_ts = ConfigBoolean(default=False)
+    config_serviceapp.exteplayer3[key].progressive = ConfigSelection(default="", choices=[
+        ("", _("Player default")), ("0", _("Disabled")), ("1", _("Enabled"))])
+    config_serviceapp.exteplayer3[key].nice = ConfigSelection(default="", choices=[
+        ("", _("Player default"))] + [(str(n), str(n)) for n in range(20)])
+    config_serviceapp.exteplayer3[key].mpegts_program_id = ConfigInteger(0, (0, 65535))
+    config_serviceapp.exteplayer3[key].ffmpeg_option = ConfigText(default="", fixed_size=False)
+
 
 
 def key_to_setting_id(key):
@@ -98,6 +122,11 @@ def init_serviceapp_settings():
                 serviceapp_cfg.autoselect_stream.value,
                 serviceapp_cfg.connection_speed_kb.value,
                 serviceapp_cfg.autoturnon_subtitles.value)
+        serviceapp_client.setPlaybackProfileSettings(setting_id,
+                serviceapp_cfg.profile.value,
+                serviceapp_cfg.ts_buffer_size.value, serviceapp_cfg.ts_buffer_duration.value,
+                serviceapp_cfg.hls_buffer_size.value, serviceapp_cfg.hls_buffer_duration.value,
+                serviceapp_cfg.profile_hls_explorer.value)
 
     for key in list(config_serviceapp.gstplayer.keys()):
         setting_id = key_to_setting_id(key)
@@ -116,6 +145,10 @@ def init_serviceapp_settings():
                 player_cfg.subtitle_enabled.value,
                 player_cfg.buffer_size.value,
                 player_cfg.buffer_duration.value)
+        serviceapp_client.setPlayerOption(setting_id, "gstplayer", "interface", player_cfg.interface.value)
+        serviceapp_client.setPlayerOption(setting_id, "gstplayer", "ring_buffer_maxsize",
+                str(player_cfg.ring_buffer_maxsize.value) if player_cfg.ring_buffer_maxsize.value else "")
+        serviceapp_client.setPlayerOption(setting_id, "gstplayer", "download_buffer_path", player_cfg.download_buffer_path.value)
 
     for key in list(config_serviceapp.exteplayer3.keys()):
         setting_id = key_to_setting_id(key)
@@ -139,6 +172,13 @@ def init_serviceapp_settings():
                 player_cfg.eac3_swdecoding.value,
                 player_cfg.mp3_swdecoding.value,
                 rtmp_proto_val)
+        for option, value in (
+                ("live_ts", "1" if player_cfg.live_ts.value else ""),
+                ("progressive", player_cfg.progressive.value),
+                ("nice", player_cfg.nice.value),
+                ("mpegts_program_id", str(player_cfg.mpegts_program_id.value) if player_cfg.mpegts_program_id.value else ""),
+                ("ffmpeg_option", player_cfg.ffmpeg_option.value)):
+            serviceapp_client.setPlayerOption(setting_id, "exteplayer3", option, value)
 
     if config_serviceapp.servicemp3.player.value == "gstplayer":
         serviceapp_client.setServiceMP3GstPlayer()
@@ -173,22 +213,32 @@ class ServiceAppSettings(ConfigListScreen, Screen):
                 lambda x: self.build_configlist(), initial_call=False)
         config_serviceapp.servicemp3.replace.addNotifier(
                 lambda x: self.build_configlist(), initial_call=False)
+        self._profile_notifiers = []
+        for cfg in config_serviceapp.options.values():
+            self._profile_notifiers.extend((cfg.profile, cfg.show_advanced))
+        for cfg in config_serviceapp.gstplayer.values():
+            self._profile_notifiers.append(cfg.interface)
+        for element in self._profile_notifiers:
+            element.addNotifier(self.profile_changed, initial_call=False)
+        self.build_configlist()
+
+    def profile_changed(self, element):
         self.build_configlist()
 
     def deinit_config(self):
         del config_serviceapp.servicemp3.player.notifiers[:]
         del config_serviceapp.servicemp3.replace.notifiers[:]
+        for element in self._profile_notifiers:
+            element.removeNotifier(self.profile_changed)
 
     def gstplayer_options(self, gstplayer_options_cfg):
         config_list = []
+        if gstplayer_options_cfg.interface.value == "openpli":
+            return config_list
         config_list.append(getConfigListEntry("  " + _("Sink"),
             gstplayer_options_cfg.sink, _("Select sink which you want to use.")))
         config_list.append(getConfigListEntry("  " + _("Embedded subtitles"),
             gstplayer_options_cfg.subtitle_enabled, _("Turn on the embedded subtitles support.")))
-        config_list.append(getConfigListEntry("  " + _("Buffer size"),
-            gstplayer_options_cfg.buffer_size, _("Set buffer size in kilobytes.")))
-        config_list.append(getConfigListEntry("  " + _("Buffer duration"),
-            gstplayer_options_cfg.buffer_duration, _("Set buffer duration in seconds.")))
         return config_list
 
     def exteplayer3_options(self, exteplayer3_options_cfg):
@@ -202,7 +252,7 @@ class ServiceAppSettings(ConfigListScreen, Screen):
         config_list.append(getConfigListEntry("  " + _("DTS software decoding"),
             exteplayer3_options_cfg.dts_swdecoding, _("Turn on DTS software decoding.")))
         config_list.append(getConfigListEntry("  " + _("MP3 software decoding"),
-            exteplayer3_options_cfg.dts_swdecoding, _("Turn on MP3 software decoding.")))
+            exteplayer3_options_cfg.mp3_swdecoding, _("Turn on MP3 software decoding.")))
         config_list.append(getConfigListEntry("  " + _("WMA software decoding"),
             exteplayer3_options_cfg.wma_swdecoding, _("Turn on WMA1, WMA2, WMA/PRO software decoding.")))
         config_list.append(getConfigListEntry("  " + _("Stereo downmix"),
@@ -213,17 +263,60 @@ class ServiceAppSettings(ConfigListScreen, Screen):
             exteplayer3_options_cfg.rtmp_protocol, _("Set which RTMP protocol implementation will be used for playback of RTMP streams")))
         return config_list
 
-    def serviceapp_options(self, serviceapp_options_cfg):
-        config_list = []
-        config_list.append(getConfigListEntry("  " + _("Auto turn on subtitles"),
-            serviceapp_options_cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available.")))
-        config_list.append(getConfigListEntry("  " + _("HLS Explorer"),
-            serviceapp_options_cfg.hls_explorer, _("Turn on explorer to retrieve different quality streams from HLS variant playlist and select them via subservices.")))
-        config_list.append(getConfigListEntry("  " + _("Auto select stream"),
-            serviceapp_options_cfg.autoselect_stream, _("Turn on auto-selection of streams according to set Connection speed.")))
-        config_list.append(getConfigListEntry("  " + _("Connection speed"),
-            serviceapp_options_cfg.connection_speed_kb, _("Set connection speed in kb/s, according to which you want to have streams auto-selected")))
+    def serviceapp_options(self, cfg):
+        config_list = [getConfigListEntry("  " + _("Auto turn on subtitles"),
+            cfg.autoturnon_subtitles, _("Automatically turn on subtitles if available."))]
+        if cfg.profile.value == "legacy":
+            explorer = cfg.hls_explorer
+        elif cfg.profile.value in ("auto", "hls"):
+            explorer = cfg.profile_hls_explorer
+        else:
+            return config_list
+        config_list.append(getConfigListEntry("  " + _("HLS Explorer"), explorer,
+            _("Optional master-playlist variant selection. Disabled in new profiles so the player handles HLS natively.")))
+        config_list.append(getConfigListEntry("  " + _("Auto select stream"), cfg.autoselect_stream,
+            _("Only used with HLS Explorer.")))
+        config_list.append(getConfigListEntry("  " + _("Connection speed"), cfg.connection_speed_kb,
+            _("HLS Explorer maximum bitrate in kb/s; does not control the native player's HLS selection.")))
         return config_list
+
+    def profile_options(self, player_type, cfg, player_cfg):
+        rows = [getConfigListEntry("  " + _("Playback profile"), cfg.profile,
+            _("Auto recognizes HTTP(S) .ts and .m3u8 paths, ignoring query strings. Use an explicit profile for token-only URLs. Legacy preserves existing settings."))]
+        if player_type == "gstplayer":
+            rows.append(getConfigListEntry("  " + _("GstPlayer interface"), player_cfg.interface,
+                _("Select OpenPLi positional interface for the gstplayer supplied by OpenPLi. Legacy uses ServiceApp flags.")))
+            if cfg.profile.value in ("auto", "ts"):
+                rows.extend([
+                    getConfigListEntry("  " + _("Live TS buffer (KB)"), cfg.ts_buffer_size, _("GstPlayer buffer size; reduce only after testing on your receiver.")),
+                    getConfigListEntry("  " + _("Live TS buffer duration (s)"), cfg.ts_buffer_duration, _("Zero leaves duration at the player default."))])
+            if cfg.profile.value in ("auto", "hls"):
+                rows.extend([
+                    getConfigListEntry("  " + _("HLS buffer (KB)"), cfg.hls_buffer_size, _("GstPlayer HLS buffer size; actual segment buffering depends on GStreamer.")),
+                    getConfigListEntry("  " + _("HLS buffer duration (s)"), cfg.hls_buffer_duration, _("Zero leaves duration at the player default."))])
+            if cfg.profile.value in ("legacy", "auto", "vod"):
+                rows.extend([
+                    getConfigListEntry("  " + _("VOD / legacy buffer (KB)"), player_cfg.buffer_size),
+                    getConfigListEntry("  " + _("VOD / legacy buffer duration (s)"), player_cfg.buffer_duration)])
+        rows.append(getConfigListEntry("  " + _("Show advanced options"), cfg.show_advanced))
+        if not cfg.show_advanced.value:
+            return rows
+        if player_type == "exteplayer3":
+            if cfg.profile.value == "legacy":
+                rows.append(getConfigListEntry("  " + _("Live TS mode"), player_cfg.live_ts,
+                    _("Enable exteplayer3 live MPEG-TS mode, including reconnect at EOF. New profiles select this automatically.")))
+            rows.extend([
+                getConfigListEntry("  " + _("Progressive download"), player_cfg.progressive, _("Player default recommended. Explicit values are passed as -o 0 or -o 1.")),
+                getConfigListEntry("  " + _("Process nice value"), player_cfg.nice, _("Zero is normal priority. Higher values reduce priority; leave at player default unless needed.")),
+                getConfigListEntry("  " + _("MPEG-TS program ID"), player_cfg.mpegts_program_id, _("Zero uses the player default. Select a program from a multi-program transport stream.")),
+                getConfigListEntry("  " + _("FFmpeg options"), player_cfg.ffmpeg_option,
+                    _("key=value;key=value, each passed with -f. Installed FFmpeg must support the keys. exteplayer3 overrides HTTP timeout/reconnect defaults; see README."))])
+        elif cfg.profile.value in ("legacy", "auto", "vod"):
+            rows.extend([
+                getConfigListEntry("  " + _("VOD ring buffer (MB)"), player_cfg.ring_buffer_maxsize, _("Zero leaves it unset. Used together with the download buffer template; not applied to Live TS/HLS profiles.")),
+                getConfigListEntry("  " + _("VOD download buffer template"), player_cfg.download_buffer_path,
+                    _("Empty disables disk download buffering. Use a writable GLib temporary-file template ending in XXXXXX, for example /media/hdd/serviceapp-XXXXXX."))])
+        return rows
 
     def player_options(self, player_type, service_type):
         config_list = []
@@ -233,12 +326,14 @@ class ServiceAppSettings(ConfigListScreen, Screen):
             config_list.append(getConfigListEntry("  " + _("ExtEplayer3"),
                 ConfigSelection([(EXTEPLAYER3_VERSION or "not installed", str(EXTEPLAYER3_VERSION) or _("not installed"))])))
             if EXTEPLAYER3_VERSION:
+                config_list += self.profile_options(player_type, serviceapp_cfg, player_cfg)
                 config_list += self.exteplayer3_options(player_cfg)
                 config_list += self.serviceapp_options(serviceapp_cfg)
         if player_type == "gstplayer":
             config_list.append(getConfigListEntry("  " + _("GstPlayer"),
                 ConfigSelection([(GSTPLAYER_VERSION or "not installed", str(GSTPLAYER_VERSION) or _("not installed"))])))
             if GSTPLAYER_VERSION:
+                config_list += self.profile_options(player_type, serviceapp_cfg, player_cfg)
                 config_list += self.gstplayer_options(player_cfg)
                 config_list += self.serviceapp_options(serviceapp_cfg)
         return config_list
@@ -266,7 +361,30 @@ class ServiceAppSettings(ConfigListScreen, Screen):
         self["config"].list = config_list
         self["config"].l.setList(config_list)
 
+    def all_config_elements(self):
+        for group in (config_serviceapp.options, config_serviceapp.gstplayer, config_serviceapp.exteplayer3):
+            for cfg in group.values():
+                for element in cfg.dict().values():
+                    yield element
+        yield config_serviceapp.servicemp3.player
+        yield config_serviceapp.servicemp3.replace
+
+    def keyCancel(self):
+        for element in self.all_config_elements():
+            element.cancel()
+        self.close()
+
     def keyOk(self):
+        # Validate before changing the running settings or saving invalid text.
+        for cfg in config_serviceapp.exteplayer3.values():
+            if not serviceapp_client.validFFmpegOptions(cfg.ffmpeg_option.value):
+                self.session.open(MessageBox, _("FFmpeg options must be key=value entries separated by semicolons."), type=MessageBox.TYPE_ERROR)
+                return
+        for cfg in config_serviceapp.gstplayer.values():
+            path = cfg.download_buffer_path.value
+            if path and (not path.startswith("/") or not path.endswith("XXXXXX") or "\x00" in path):
+                self.session.open(MessageBox, _("Download buffer must be an absolute temporary-file template ending in XXXXXX."), type=MessageBox.TYPE_ERROR)
+                return
         if config_serviceapp.servicemp3.replace.isChanged():
             self.session.openWithCallback(self.save_settings_and_close,
                     MessageBox, _("Enigma2 playback system was changed and Enigma2 should be restarted\n\nDo you want to restart it now?"),
@@ -280,7 +398,8 @@ class ServiceAppSettings(ConfigListScreen, Screen):
             serviceapp_client.setServiceMP3Replace(True)
         else:
             serviceapp_client.setServiceMP3Replace(False)
-        self.saveAll()
+        for element in self.all_config_elements():
+            element.save()
         self.close(callback)
 
 
@@ -404,7 +523,11 @@ def play_gstplayer(session, service, **kwargs):
 
 
 def Plugins(**kwargs):
+    from .streamsettings import initialize, open_settings
+    initialize()
     return [
+            PluginDescriptor(name=_("ServiceApp: current stream"), description=_("Individual IPTV stream settings"),
+                where=PluginDescriptor.WHERE_EXTENSIONSMENU, needsRestart=False, fnc=open_settings),
             PluginDescriptor(name=_("ServiceApp"), description=_("setup player framework"),
                 where=PluginDescriptor.WHERE_MENU, needsRestart=False, fnc=menu),
             PluginDescriptor(name=_("ServiceApp"), description=_("Play with ServiceExtEplayer3"),

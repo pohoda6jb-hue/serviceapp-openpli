@@ -122,12 +122,19 @@ ssize_t timedRead(SSL *ssl, int fd, void *buf, size_t count, int initialtimeout,
 	return totalread;
 }
 
+#include <chrono>
 ssize_t readLine(SSL *ssl, int fd, char** buffer, size_t* bufsize)
 {
 	size_t i = 0;
 	int result;
+	// A slow peer must not keep a line alive indefinitely one byte at a time.
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8);
 	while (1)
 	{
+		if (i >= 65536 || std::chrono::steady_clock::now() >= deadline) {
+			(*buffer)[i < *bufsize ? i : *bufsize - 1] = '\0';
+			return -1;
+		}
 		if (i >= *bufsize)
 		{
 			char *newbuf = (char*)realloc(*buffer, (*bufsize)+1024);

@@ -1,0 +1,81 @@
+diff --git a/container/container_ffmpeg.c b/container/container_ffmpeg.c
+index 6c0c857..e685892 100755
+--- a/container/container_ffmpeg.c
++++ b/container/container_ffmpeg.c
+@@ -1311,6 +1311,7 @@ static void FFMPEGThread(Context_t *context)
+         {
+             if( 0 != ffmpegStatus )
+             {
++                E2iSendMsg("{\"FF_READ_ERROR\":{\"code\":%d,\"msg\":\"av_read_frame failed\"}}\n", ffmpegStatus);
+                 static char errbuf[256];
+ 
+                 if( 0 == av_strerror(ffmpegStatus, errbuf, sizeof(errbuf)) )
+@@ -1818,13 +1819,14 @@ int32_t container_ffmpeg_init_av_context(Context_t *context, char *filename, uin
+     else if(0 == strncmp(filename, "http://", 7) ||
+             0 == strncmp(filename, "https://", 8))
+     {
+-        av_dict_set(&avio_opts, "timeout", "20000000", 0); //20sec
+-        av_dict_set(&avio_opts, "reconnect", "1", 0);
++        // Preserve explicit -f options; defaults remain compatible with OpenPLi.
++        av_dict_set(&avio_opts, "timeout", "20000000", AV_DICT_DONT_OVERWRITE);
++        av_dict_set(&avio_opts, "reconnect", "1", AV_DICT_DONT_OVERWRITE);
+         if (context->playback->isTSLiveMode) // special mode for live TS stream with skip packet
+         {
+-            av_dict_set(&avio_opts, "seekable", "0", 0);
+-            av_dict_set(&avio_opts, "reconnect_at_eof", "1", 0);
+-            av_dict_set(&avio_opts, "reconnect_streamed", "1", 0);
++            av_dict_set(&avio_opts, "seekable", "0", AV_DICT_DONT_OVERWRITE);
++            av_dict_set(&avio_opts, "reconnect_at_eof", "1", AV_DICT_DONT_OVERWRITE);
++            av_dict_set(&avio_opts, "reconnect_streamed", "1", AV_DICT_DONT_OVERWRITE);
+         }
+     }
+ 
+diff --git a/main/exteplayer.c b/main/exteplayer.c
+index 14830db..78788fb 100755
+--- a/main/exteplayer.c
++++ b/main/exteplayer.c
+@@ -513,10 +513,11 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
+         case 'x':
+             if (optarg[0] != '\0')
+             {
+-                playbackFiles->szSecondFile = malloc(IPTV_MAX_FILE_PATH);
++                playbackFiles->szSecondFile = malloc(IPTV_MAX_FILE_PATH + 1);
++                if (!playbackFiles->szSecondFile) return -1;
+                 playbackFiles->szSecondFile[0] = '\0';
+                 strncpy(playbackFiles->szSecondFile, optarg, IPTV_MAX_FILE_PATH-1);
+-                playbackFiles->szSecondFile[IPTV_MAX_FILE_PATH] = '\0';
++                playbackFiles->szSecondFile[IPTV_MAX_FILE_PATH - 1] = '\0';
+                 map_inter_file_path(playbackFiles->szSecondFile);
+             }
+             break;
+@@ -578,10 +579,11 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
+         case 'F':
+             if (optarg[0] != '\0')
+             {
+-                playbackFiles->szFirstMoovAtomFile = malloc(IPTV_MAX_FILE_PATH);
++                playbackFiles->szFirstMoovAtomFile = malloc(IPTV_MAX_FILE_PATH + 1);
++                if (!playbackFiles->szFirstMoovAtomFile) return -1;
+                 playbackFiles->szFirstMoovAtomFile[0] = '\0';
+                 strncpy(playbackFiles->szFirstMoovAtomFile, optarg, IPTV_MAX_FILE_PATH-1);
+-                playbackFiles->szFirstMoovAtomFile[IPTV_MAX_FILE_PATH] = '\0';
++                playbackFiles->szFirstMoovAtomFile[IPTV_MAX_FILE_PATH - 1] = '\0';
+                 map_inter_file_path(playbackFiles->szFirstMoovAtomFile);
+             }
+             break;
+@@ -594,14 +596,14 @@ static int ParseParams(int argc,char* argv[], PlayFiles_t *playbackFiles, int *p
+     if (0 == ret && optind < argc)
+     {
+         ret = 0;
+-        playbackFiles->szFirstFile = malloc(IPTV_MAX_FILE_PATH);
++        playbackFiles->szFirstFile = malloc(strlen(argv[optind]) + 8);
++        if (!playbackFiles->szFirstFile) return -1;
+         playbackFiles->szFirstFile[0] = '\0';
+         if(NULL == strstr(argv[optind], "://"))
+         {
+             strcpy(playbackFiles->szFirstFile, "file://");
+         }
+         strcat(playbackFiles->szFirstFile, argv[optind]);
+-        playbackFiles->szFirstFile[IPTV_MAX_FILE_PATH] = '\0';
+         map_inter_file_path(playbackFiles->szFirstFile);
+         printf("file: [%s]\n", playbackFiles->szFirstFile);
+         ++optind;

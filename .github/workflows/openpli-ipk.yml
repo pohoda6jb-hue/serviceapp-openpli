@@ -1,0 +1,101 @@
+name: OpenPLi 9.2 receiver packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine:
+        description: Receiver to build (one receiver per run)
+        required: true
+        default: vuzero4k
+        type: choice
+        options: [vuzero4k, vuduo4k, sf8008]
+  push:
+    branches: [feature/openpli-ts-hls-profiles]
+    paths:
+      - '.github/workflows/openpli-ipk.yml'
+      - 'CI/openpli/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openpli92-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: package (${{ matrix.machine }})
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ["${{ github.event.inputs.machine || 'vuzero4k' }}"]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    container: ubuntu:20.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install OpenEmbedded host tools
+        run: |
+          apt-get update -qq
+          apt-get install -y git ca-certificates build-essential chrpath cpio diffstat \
+            file gawk gcc-multilib gettext locales python3 python3-dev python3-pip python3-pexpect \
+            python3-git python3-jinja2 socat texinfo unzip wget xz-utils zstd \
+            bzip2 lz4 rsync libssl-dev automake autoconf libtool pkg-config \
+            default-jre-headless subversion
+          locale-gen en_US.UTF-8
+          useradd -m -s /bin/bash builder
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check playback policy before starting the cross-build
+        run: |
+          python3 -m compileall -q src/plugin test CI/openpli
+          python3 test/test_plugin.py
+          python3 test/test_streamsettings.py
+          python3 test/check_playback.py
+          python3 test/check_hls.py
+      - name: Restore downloaded sources and completed build tasks
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            .openpli-cache/downloads
+            .openpli-cache/sstate
+          key: openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-
+            openpli92-vuduo4k-73ca1f16-u20-v1-
+      - name: Build ServiceApp against OpenPLi 9.2
+        env:
+          SERVICEAPP_COMMIT: ${{ github.sha }}
+        run: |
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          install -d -o builder -g builder "$(dirname "$GITHUB_WORKSPACE")/openpli92-build"
+          runuser -u builder -- env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
+            SERVICEAPP_COMMIT="$SERVICEAPP_COMMIT" \
+            SERVICEAPP_MACHINE="${{ matrix.machine }}" \
+            bash "$GITHUB_WORKSPACE/CI/openpli/build.sh"
+      # Separate save action preserves completed tasks even when BitBake fails.
+      - name: Save downloaded sources and completed build tasks
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .openpli-cache/downloads
+            .openpli-cache/sstate
+          key: openpli92-${{ matrix.machine }}-73ca1f16-u20-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Save package and build provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: serviceapp-openpli92-${{ matrix.machine }}
+          path: artifacts/package/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Save diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openpli92-build-diagnostics-${{ matrix.machine }}
+          path: artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 7

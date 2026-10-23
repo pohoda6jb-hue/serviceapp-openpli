@@ -80,3 +80,20 @@ def setExtEplayer3Settings(settingId, aacSwDecoding, dtsSwDecoding, wmaSwDecodin
                 eac3SwDecoding,
                 mp3SwDecoding,
 				rtmpProtocol)
+
+
+def setPlaybackProfileSettings(settingId, profile, tsSize, tsDuration, hlsSize, hlsDuration, hlsExplorer=False):
+    return serviceapp.playback_profile_set_setting(settingId, profile,
+            tsSize, tsDuration, hlsSize, hlsDuration, int(hlsExplorer))
+
+
+def setPlayerOption(settingId, player, key, value):
+    return serviceapp.player_set_option(settingId, player, key, value)
+
+
+def validFFmpegOptions(value):
+    if not value:
+        return True
+    import re
+    return all(re.match(r"^[A-Za-z0-9_]+=[^\x00]+$", option) is not None
+            for option in value.split(";"))

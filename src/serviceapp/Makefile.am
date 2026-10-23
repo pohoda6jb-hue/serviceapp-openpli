@@ -17,6 +17,9 @@ plugin_LTLIBRARIES = serviceapp.la
 
 serviceapp_la_SOURCES = \
 	serviceapp.cpp \
+	playbackprofile.h \
+	recovery.h \
+	playerprotocol.h \
 	extplayer.cpp \
 	scriptrun.cpp \
 	myconsole.cpp \
@@ -30,6 +33,7 @@ serviceapp_la_SOURCES = \
 	subtitles/subrip.cpp
 
 serviceapp_la_LDFLAGS = \
+	-lpthread \
 	@UCHARDET_LIBS@ \
 	@OPENSSL_LIBS@ \
 	-avoid-version \

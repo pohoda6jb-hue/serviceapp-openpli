@@ -18,6 +18,7 @@ class GstPlayerOptions : public IOption
 {
 public:
 	GstPlayerOptions();
+	bool openpliInterface;
 	SettingMap &GetSettingMap();
 
 	int update(const std::string &, const std::string &);

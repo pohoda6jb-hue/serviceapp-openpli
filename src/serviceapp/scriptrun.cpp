@@ -42,7 +42,7 @@ void scriptrun::run(eMainloop *context)
     for (size_t i = 0;  i < m_params.size(); i++)
         args.push_back(m_params[i]);
 
-    char **cargs = (char **) malloc(sizeof(char *) * args.size()+1);
+    char **cargs = (char **) malloc(sizeof(char *) * (args.size() + 1));
     for (size_t i=0; i <= args.size(); i++)
     {
         // execvp needs args array terminated with NULL
@@ -75,8 +75,13 @@ ResolveUrl::ResolveUrl(const std::string &url):
     m_success(0),
     mStopped(false),
     mThreadRunning(false),
+#ifdef SERVICEAPP_OPENPLI92
+    mMessageMain(eApp, 1),
+    mMessageThread(this, 1)
+#else
     mMessageMain(eApp, 1, "ResolveUrl"),
     mMessageThread(this, 1, "ResolveUrl")
+#endif
 {
     eDebug("ResolveUrl::ResolveUrl %s", url.c_str());
     CONNECT(mMessageThread.recv_msg, ResolveUrl::gotMessage);

@@ -15,55 +15,9 @@ void PlayerApp::handleJsonStr(const std::string& data)
 	handleJsonOutput(json);
 	cJSON_Delete(json);
 }
-void PlayerApp::handleOutput(const std::string& mydata)
+void PlayerApp::handleOutput(const std::string& data)
 {
-	//FIXME
-	std::size_t pos = 0;
-	std::size_t startpos = 0;
-
-	while((pos = mydata.find('\n', pos)) != std::string::npos)
-	{
-		if (truncated)
-		{
-			if (mydata[pos-1] != '}')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(jsonstr + mydata.substr(startpos, pos - startpos));
-			jsonstr = "";
-			truncated = 0;
-		}
-		else
-		{
-			if (mydata[0] != '{')
-			{
-				jsonstr = "";
-				truncated = 0;
-				return;
-			}
-			handleJsonStr(mydata.substr(startpos, pos - startpos));
-			jsonstr = "";
-			truncated = 0;
-		}
-		pos+=1;
-		startpos = pos;
-	}
-	if (startpos != std::string::npos && startpos != mydata.length())
-	{
-		//std::cout << "remains: " << mydata.length()-startpos;
-		if (mydata[mydata.length()-1] == '}')
-		{
-			handleJsonStr(mydata.substr(startpos, mydata.length() - pos));
-			truncated = 0;
-		}
-		else
-		{
-			truncated = 1;
-			jsonstr = mydata.substr(startpos);
-		}
-	}
+	for (const auto &line : m_json_lines.append(data)) handleJsonStr(line);
 }
 
 void PlayerApp::stderrAvail(const char *data)
@@ -99,7 +53,7 @@ int PlayerApp::processStart(eMainloop *context)
 	CONNECT(console->stderrAvail, PlayerApp::stderrAvail);
 	const std::vector<std::string> args = buildCommand();
 	eDebugNoNewLine("PlayerApp::processStart: ");
-	char **cargs = (char **) malloc(sizeof(char *) * args.size()+1);
+	char **cargs = (char **) malloc(sizeof(char *) * (args.size() + 1));
 	for (size_t i=0; i <= args.size(); i++)
 	{
 		// execvp needs args array terminated with NULL
@@ -305,12 +259,23 @@ int PlayerBackend::getLength(int& mseconds)
 
 int PlayerBackend::getErrorMessage(errorMessage& error)
 {
-	if (!playbackStarted || !pErrorMessage)
+	pthread_mutex_lock(&mWaitMutex);
+	if (!pErrorMessage)
 	{
+		pthread_mutex_unlock(&mWaitMutex);
 		return -1;
 	}
 	error = *pErrorMessage;
+	pthread_mutex_unlock(&mWaitMutex);
 	return 0;
+}
+
+void PlayerBackend::recvErrorMessage(errorMessage& message)
+{
+	pthread_mutex_lock(&mWaitMutex);
+	delete pErrorMessage;
+	pErrorMessage = new errorMessage(message);
+	pthread_mutex_unlock(&mWaitMutex);
 }
 
 int PlayerBackend::audioGetNumberOfTracks(int timeout)
@@ -431,7 +396,7 @@ void PlayerBackend::gotMessage(const PlayerBackend::Message& message)
 			break;
 		case Message::tStop:
 			eDebug("PlayerBackend::gotMessage - tStop");
-			mTimer->stop();
+			if (mTimer) mTimer->stop();
 			pPlayer->sendStop();
 			break;
 		case Message::tKill:
@@ -547,6 +512,8 @@ void PlayerBackend::recvStarted(int status)
 
 void PlayerBackend::recvStopped(int retval)
 {
+	playbackStarted = false;
+	if (mTimer) mTimer->stop();
 	pthread_mutex_lock(&mWaitForStopMutex);
 	if (mWaitForStop)
 	{
